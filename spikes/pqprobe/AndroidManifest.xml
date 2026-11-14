@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="se.tvcal.pqprobe"
+    android:versionCode="1"
+    android:versionName="0.1">
+
+    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
+
+    <!-- Bara läsning. WRITE_DATA läggs till först när skrivprovet ska göras. -->
+    <uses-permission android:name="com.mediatek.tv.agent.settingspqdb.permission.READ_DATA" />
+
+    <!-- Android 11+ döljer andra appars leverantörer om de inte anges här. -->
+    <queries>
+        <provider android:authorities="com.mediatek.tv.settingspqdb" />
+    </queries>
+
+    <application android:label="PQ Probe" android:hasCode="true">
+        <activity
+            android:name=".ProbeActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay" />
+    </application>
+</manifest>

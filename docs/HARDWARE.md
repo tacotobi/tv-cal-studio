@@ -45,8 +45,25 @@ Skalet har rätt att skriva i tabellen, men det är **overifierat** om TV:n reag
 - **Verifierat (namn i koden):** 2-punkts vitbalans per färgtemperatur
   (`Color_Temperature_<läge>_<Red|Green|Blue>_<Gain|Offset>`) och färghantering för R, G, B, C, M,
   Y och hudton (`CFG_FUSION_PIC_COLOR_TUNER_{HUE,SAT,BRI}_*`, samt `GAIN_*`/`OFFSET_*` för RGB).
-- **Overifierat:** exakta nyckelnamn och värdeintervall i databasen, och att en skrivning slår
-  igenom i bilden direkt.
+- **Verifierat (läst med `spikes/pqprobe`):** en egen app med `READ_DATA` får behörigheten vid
+  installation och kan läsa databasen. `/source` gav `mm` (inbyggda appar), `/hdr` gav `SDR`.
+- **Verifierat:** `/general` läses med nyckelnamnet som projektion och svarar bara på det första
+  namnet – en fråga per nyckel. Värdena gäller aktuell ingång och aktuellt bildläge.
+- **Verifierat (lästa värden, bildläge `Movie`):**
+  - Grund: `Backlight=30`, `Brightness=50`, `Contrast=50`, `Saturation=50`, `Hue=0`,
+    `Gamma=Gamma22`, `Color_Temperature=Warm`, `Color_space=Auto`.
+  - 2-punkts vitbalans: `Color_Temperature_{Red,Green,Blue}_Gain=1024` (aktiva värden) och
+    förinställningen `Color_Temperature_Warm_*_Gain` = 1036/1024/976. Offset-nycklarna är tomma.
+  - Flerpunkts vitbalans: `PQ_WB_11_Point_<0–11>_{Red,Green,Blue}`, alla 50, med
+    `PQ_WB_11_Point_enabled=Off`. Tolv index trots namnet "11 Point".
+  - Färghantering: `COLORTUNER_{H,S,Y}_{R,G,B,C,M,Y,F}` och `COLORTUNER_{R,G,B}_{GAIN,OFFSET}`,
+    alla 50, med `COLORTUNER_SWITCH=Off`.
+  - Mini-LED och dynamik: `LD_MODE=High`, `Global_Dimming=On`, `Local_Contrast=Middle`,
+    `DLC_STRENGTH=Off`, `Peak_Bright=Off`, `HDR_Mode=Auto`, `TMO_Range=Off`, `Calman_Mode=Off`.
+  - Fullständig lista: kör provappen, resultatet hamnar i `data/probe/<datum>/pqdb_general.txt`.
+- **Oklart:** databasen säger `Backlight=30` medan `settings`-tabellen säger
+  `picture_backlight=49`. Vilken som styr panelen får skrivprovet visa.
+- **Overifierat:** värdeintervall, och att en skrivning slår igenom i bilden direkt.
 
 Fabrikstabellerna (`*_factory`) rörs inte av projektet.
 
@@ -79,4 +96,8 @@ Nästa prov: en minimal app som läser `settingspqdb` och gör en enda omvändba
 - ArgyllCMS 3.5.0 från `extra`, udev-regeln `55-Argyll.rules` finns. Efter nyinstallation måste
   mätaren dras ur och i för att få rätt behörighet.
 - `android-tools` 37.0.0 från `extra` ger `adb`.
-- Saknas ännu: JDK och Android SDK (build-tools, plattform 34) för att bygga appen.
+- JDK 21 via mise och Android SDK (plattform 34, build-tools 34.0.0) i
+  `~/.local/share/android-sdk`. `scripts/install_arch.sh` sätter upp allt på en ny dator,
+  `scripts/check_hardware.sh <tv-ip>` kontrollerar verktyg, mätare och TV.
+- Provappen signeras med en nyckel per dator. Byggs den på en annan dator måste den gamla
+  avinstalleras först: `adb uninstall se.tvcal.pqprobe`.

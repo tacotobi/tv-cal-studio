@@ -6,8 +6,9 @@
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
-    <!-- Bara läsning. WRITE_DATA läggs till först när skrivprovet ska göras. -->
     <uses-permission android:name="com.mediatek.tv.agent.settingspqdb.permission.READ_DATA" />
+    <!-- För skrivprovet. Koden släpper bara igenom nyckeln Backlight. -->
+    <uses-permission android:name="com.mediatek.tv.agent.settingspqdb.permission.WRITE_DATA" />
 
     <!-- Android 11+ döljer andra appars leverantörer om de inte anges här. -->
     <queries>
@@ -19,5 +20,9 @@
             android:name=".ProbeActivity"
             android:exported="true"
             android:theme="@android:style/Theme.NoDisplay" />
+        <activity
+            android:name=".PatternActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
     </application>
 </manifest>

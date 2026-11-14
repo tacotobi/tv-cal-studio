@@ -1,7 +1,7 @@
 # Hårdvara och sondering
 
 Fynd från läs-sonderingen 2026-11-14 (`scripts/detect_tv.sh` plus manuell granskning av två
-systemappar). Inget skrevs till TV:n. Varje punkt är märkt **verifierat** (uppmätt eller avläst)
+systemappar) och skrivprovet 2026-11-15. Det enda som skrivits till TV:n är `Backlight` (skrivprov och svep 0–100), återställt till 30. Varje punkt är märkt **verifierat** (uppmätt eller avläst)
 eller **overifierat** (slutsats från namn i kod, inte provad).
 
 ## TV
@@ -61,9 +61,68 @@ Skalet har rätt att skriva i tabellen, men det är **overifierat** om TV:n reag
   - Mini-LED och dynamik: `LD_MODE=High`, `Global_Dimming=On`, `Local_Contrast=Middle`,
     `DLC_STRENGTH=Off`, `Peak_Bright=Off`, `HDR_Mode=Auto`, `TMO_Range=Off`, `Calman_Mode=Off`.
   - Fullständig lista: kör provappen, resultatet hamnar i `data/probe/<datum>/pqdb_general.txt`.
-- **Oklart:** databasen säger `Backlight=30` medan `settings`-tabellen säger
-  `picture_backlight=49`. Vilken som styr panelen får skrivprovet visa.
-- **Overifierat:** värdeintervall, och att en skrivning slår igenom i bilden direkt.
+- **Verifierat (namn i koden):** en skrivning är `update` mot `/general` med nyckelnamnet som
+  kolumn och värdet som sträng. Leverantören behandlar bara första nyckeln i anropet, svarar `1`
+  direkt och lagrar värdet på en egen tråd.
+- **Verifierat (skrivprov 2026-11-15, se nedan):** en egen app med `WRITE_DATA` får skriva, och
+  en skrivning av `Backlight` ändrar ljuset direkt och går att ta tillbaka.
+- **Verifierat:** `settings`-tabellens `picture_backlight=49` ändras inte när databasens
+  `Backlight` skrivs. Databasen är den som når panelen; vad `picture_backlight` gör är oklart.
+- **Overifierat:** värdeintervall, och att övriga nycklar beter sig som `Backlight`.
+
+#### Skrivprov bakgrundsljus 2026-11-15
+Helvit bild från provappens `PatternActivity`, bildläge `Movie`, SDR, `LD_MODE=High`,
+`Global_Dimming=On`. Mätt med i1Display Pro och `spotread -e -x -O`, två avläsningar per steg.
+
+| Steg | `Backlight` läst tillbaka | Luminans (cd/m²) | x, y |
+|---|---|---|---|
+| Före | 30 | 344,3 / 344,3 | 0,2983 / 0,3037 |
+| Skrev 29 | 29 | 347,6 / 347,6 | 0,2982 / 0,3036 |
+| Skrev 30 | 30 | 344,2 / 344,1 | 0,2983 / 0,3037 |
+
+Svart bild gav 0 cd/m². Tre avläsningar på vitt före provet drev högst 0,25 cd/m², så steget på
+3,3 cd/m² (knappt 1 %) kommer från skrivningen.
+
+Värdet 29 gav *högre* luminans än 30. Svepet nedan visar att det är ett ojämnt steg just där,
+inte en omvänd skala.
+
+#### Svep bakgrundsljus 2026-11-15
+Samma läge som skrivprovet. Vit ruta på 10 % av ytan mot svart respektive helvit bild
+(`PatternActivity --ei window 10`), medel av två avläsningar per steg. Läst värde stämde med
+skrivet i varje steg utom det sista (se nedan). Rådata i `data/probe/2026-11-15/backlight_sweep_*.csv`.
+
+| `Backlight` | Fönster 10 % (cd/m²) | Helvit (cd/m²) |
+|---|---|---|
+| 0 | 157,2 | 151,2 |
+| 10 | 225,2 | 222,8 |
+| 20 | 297,8 | 287,5 |
+| 25 | 324,2 | 325,0 |
+| 28 | 347,3 | 340,9 |
+| 29 | 347,0 | 349,9 |
+| 30 | 357,6 | 346,8 |
+| 31 | 364,3 | 355,6 |
+| 32 | 369,0 | 367,4 |
+| 35 | 388,9 | 382,2 |
+| 40 | 419,4 | 420,4 |
+| 50 | 481,2 | 484,9 |
+| 75 | 622,1 | 635,5 |
+| 100 | 754,5 | 784,7 |
+
+- **Verifierat:** intervallet 0–100 tas emot, och skalan går åt rätt håll och är ungefär rak:
+  cirka 6 cd/m² per steg. Värdet 0 släcker inte panelen (drygt 150 cd/m² på vitt).
+- **Verifierat:** stegen är ojämna kring 28–30. På helvit bild ligger 29 över 30 (349,9 mot 346,8,
+  samma ordning som i skrivprovet), på fönstret ligger 28 och 29 lika. Enskilda steg kan alltså
+  inte användas för finjustering utan att mäta.
+- **Verifierat:** helvit bild begränsas inte – vid 100 är den ljusare än fönstret.
+- **Verifierat:** vitpunkten flyttar sig med bakgrundsljuset, x från 0,298 vid 0 till 0,290 vid
+  100 på fönstret (y nästan oförändrat). Vitbalansen måste ställas vid det bakgrundsljus som ska gälla.
+- **Verifierat:** `picture_backlight` låg kvar på 49 genom hela svepet.
+- Upprepade mätningar av 30 på fönstret gav 358,6, 357,6 och 354,5 – drift på omkring 1 % under
+  svepet, störst efter stegen på 75 och 100.
+- **Oklart:** sista steget i helskärmssvepet (100 → 30) gick inte igenom; läst värde var kvar på
+  100 och luminansen 774 cd/m². adb-anslutningen bröts kort i steget före, och svepskriptet
+  kontrollerade inte att anropet nådde fram. En ny skrivning av 30 direkt efteråt gick igenom
+  (342 cd/m² uppmätt). Det styrande programmet måste läsa tillbaka varje skrivning.
 
 Fabrikstabellerna (`*_factory`) rörs inte av projektet.
 
@@ -83,12 +142,11 @@ Fabrikstabellerna (`*_factory`) rörs inte av projektet.
 |---|---|
 | Identifiera TV, läsa egenskaper, installera och starta app | Fullt automatiserbart (verifierat) |
 | Visa SDR-mönster från egen app | Fullt automatiserbart (appen ej byggd än) |
-| Läsa och ändra bildinställningar | Troligen automatiserbart via egen app med `settingspqdb`-behörighet (overifierat) |
+| Läsa och ändra bildinställningar | Automatiserbart via egen app med `settingspqdb`-behörighet (verifierat för `Backlight`, övriga nycklar oprovade) |
 | HDR10-mönster | Delvis – signalvägen måste verifieras med mätning |
 | LUT-skrivning via Calman-protokollet | Reserv, kräver omvänd ingenjörskonst |
 
-Nästa prov: en minimal app som läser `settingspqdb` och gör en enda omvändbar skrivning
-(bakgrundsljus 49 → 48 → 49) medan mätaren kontrollerar att ljuset ändras.
+Nästa prov: skriv en annan nyckel än `Backlight` (t.ex. vitbalansens gain) och mät att den slår igenom.
 
 ## Mätdator
 

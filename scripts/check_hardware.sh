@@ -16,9 +16,16 @@ done
 
 echo "Mätare"
 # i1Display Pro: X-Rite USB-id 0765:5020.
-if lsusb -d 0765:5020 >/dev/null 2>&1; then
-  ok "i1Display Pro ansluten ($(lsusb -d 0765:5020 | cut -d' ' -f2,4 | tr -d ':'))"
-  dev="/dev/bus/usb/$(lsusb -d 0765:5020 | awk '{print $2"/"substr($4,1,3)}')"
+# Läser sysfs i stället för lsusb: usbutils är inte installerat överallt,
+# och utan det såg en ansluten mätare ut att saknas.
+dev=""
+for d in /sys/bus/usb/devices/*; do
+  [ "$(cat "$d/idVendor" 2>/dev/null)" = 0765 ] && [ "$(cat "$d/idProduct" 2>/dev/null)" = 5020 ] || continue
+  dev="$(printf '/dev/bus/usb/%03d/%03d' "$(cat "$d/busnum")" "$(cat "$d/devnum")")"
+  break
+done
+if [ -n "$dev" ]; then
+  ok "i1Display Pro ansluten"
   [ -w "$dev" ] && ok "skrivbar USB-enhet $dev" \
     || fail "ingen behörighet till $dev – dra ur och sätt i mätaren"
 else

@@ -1,7 +1,8 @@
 # Hårdvara och sondering
 
 Fynd från läs-sonderingen 2026-11-14 (`scripts/detect_tv.sh` plus manuell granskning av två
-systemappar) och skrivprovet 2026-11-15. Det enda som skrivits till TV:n är `Backlight` (skrivprov och svep 0–100), återställt till 30. Varje punkt är märkt **verifierat** (uppmätt eller avläst)
+systemappar) och skrivproven 2026-11-15. Till TV:n har skrivits `Backlight`, `Color_Temperature`
+och vitbalansens gain (aktiv och Warm-förinställning), allt återställt till ursprungsvärdena. Varje punkt är märkt **verifierat** (uppmätt eller avläst)
 eller **overifierat** (slutsats från namn i kod, inte provad).
 
 ## TV
@@ -68,7 +69,9 @@ Skalet har rätt att skriva i tabellen, men det är **overifierat** om TV:n reag
   en skrivning av `Backlight` ändrar ljuset direkt och går att ta tillbaka.
 - **Verifierat:** `settings`-tabellens `picture_backlight=49` ändras inte när databasens
   `Backlight` skrivs. Databasen är den som når panelen; vad `picture_backlight` gör är oklart.
-- **Overifierat:** värdeintervall, och att övriga nycklar beter sig som `Backlight`.
+- **Verifierat:** vitbalans och färgtemperatur verkar bara på videoplanet. Se
+  "Skrivprov vitbalans" nedan.
+- **Overifierat:** värdeintervall för gain och övriga nycklar.
 
 #### Skrivprov bakgrundsljus 2026-11-15
 Helvit bild från provappens `PatternActivity`, bildläge `Movie`, SDR, `LD_MODE=High`,
@@ -124,6 +127,48 @@ skrivet i varje steg utom det sista (se nedan). Rådata i `data/probe/2026-11-15
   kontrollerade inte att anropet nådde fram. En ny skrivning av 30 direkt efteråt gick igenom
   (342 cd/m² uppmätt). Det styrande programmet måste läsa tillbaka varje skrivning.
 
+#### Skrivprov vitbalans 2026-11-15
+Bildläge `Movie`, SDR, `Backlight=30`. Mätt som ovan med `scripts/pq_sweep.sh`.
+Rådata i `data/probe/2026-11-15/Color_Temperature*.csv`.
+
+**Grafikplanet tas inte med.** Med provappens vanliga vy (vit ruta 10 %) ändrade varken blå gain
+(974–1074) eller lägesbyte Warm → Standard → Cool något utöver driften. Skrivningarna gick igenom:
+`logcat` visar att hela inställningssträngen når bild-HAL:en (`PQ_AIDL`, `onNotifyPqSettingInfo`)
+med de nya värdena. Xiaomis filter verkställer bakgrundsljuset ("set backlight 30 by app"), och
+`MI_RENDER_GRAPHIC_ParseGain` misslyckas (`RET: 18`). Bakgrundsljuset gäller hela panelen och syns
+därför på allt.
+
+**Videoplanet tas med.** Samma vita ruta som H.264-video (`PatternActivity --es video`):
+
+| Skrivning | Y (cd/m²) | x | y |
+|---|---|---|---|
+| `Color_Temperature=Warm` | 349,3 | 0,3025 | 0,3121 |
+| `Color_Temperature=Standard` | 317,9 | 0,2786 | 0,2878 |
+| `Color_Temperature=Cool` | 283,3 | 0,2672 | 0,2728 |
+| `Color_Temperature_Blue_Gain=1024` | 354,2 | 0,2944 | 0,3000 |
+| `Color_Temperature_Blue_Gain=974` | 347,5 | 0,3029 | 0,3125 |
+| `Color_Temperature_Blue_Gain=1074` | 353,8 | 0,2943 | 0,3000 |
+| `Color_Temperature_Warm_Blue_Gain=926` + omladdning Cool → Warm | 344,0 | 0,3107 | 0,3257 |
+| `Color_Temperature_Warm_Blue_Gain=976` + omladdning Cool → Warm | 347,5 | 0,3025 | 0,3119 |
+
+Vad HAL:en fick, avläst i `logcat` efter varje skrivning:
+
+- **Verifierat:** förinställningen `Color_Temperature_<läge>_<färg>_Gain` lagras utan att något
+  skickas till HAL:en. Den verkställs när läget laddas, alltså vid byte till läget. Förinställningarna
+  för Warm är 1036/1024/976, för Cool 855/919/1060.
+- **Verifierat:** den aktiva nyckeln `Color_Temperature_<färg>_Gain` skickas direkt och ersätter
+  den kanalen i HAL:en tills läget laddas om. Databasens värde visar därför inte vad panelen har:
+  den står på 1024 också när HAL:en kör förinställningens 976.
+- **Verifierat:** gain 1074 gav samma resultat som 1024 trots att HAL:en fick 1074, så värden över
+  1024 tycks inte ge mer. Overifierat var gränsen ligger och hur det går ihop med Cools blå 1060.
+- **Verifierat:** grafikplanets vita (0,2945/0,3005) ligger nära video med gain 1024 på alla
+  kanaler, inte nära Warm. Gränssnittet går alltså förbi färgtemperaturen.
+- Följd för projektet: mönster för vitbalans, gamma och färg måste visas som video. Svepet av
+  bakgrundsljuset ovan gjordes i grafikplanet; luminansstegen gäller ungefär, men vitpunkterna där är
+  grafikplanets och inte det som video och appar visar.
+- Följd för det styrande programmet: att ställa vitbalansen via förinställningen och ladda om läget
+  ger ett tillstånd som går att läsa tillbaka ur databasen. Den aktiva nyckeln gör inte det.
+
 Fabrikstabellerna (`*_factory`) rörs inte av projektet.
 
 ### Inbyggd Calman-app
@@ -141,12 +186,12 @@ Fabrikstabellerna (`*_factory`) rörs inte av projektet.
 | Funktion | Bedömning |
 |---|---|
 | Identifiera TV, läsa egenskaper, installera och starta app | Fullt automatiserbart (verifierat) |
-| Visa SDR-mönster från egen app | Fullt automatiserbart (appen ej byggd än) |
-| Läsa och ändra bildinställningar | Automatiserbart via egen app med `settingspqdb`-behörighet (verifierat för `Backlight`, övriga nycklar oprovade) |
+| Visa SDR-mönster från egen app | Fullt automatiserbart; måste vara video för att bildbehandlingen ska verka (verifierat) |
+| Läsa och ändra bildinställningar | Automatiserbart via egen app med `settingspqdb`-behörighet (verifierat för `Backlight`, `Color_Temperature` och 2-punkts gain; övriga nycklar oprovade) |
 | HDR10-mönster | Delvis – signalvägen måste verifieras med mätning |
 | LUT-skrivning via Calman-protokollet | Reserv, kräver omvänd ingenjörskonst |
 
-Nästa prov: skriv en annan nyckel än `Backlight` (t.ex. vitbalansens gain) och mät att den slår igenom.
+Nästa prov: gain-intervallet (var värdet slutar ge effekt), offset och gamma, mätt på video.
 
 ## Mätdator
 

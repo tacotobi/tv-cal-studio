@@ -7,7 +7,7 @@
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
     <uses-permission android:name="com.mediatek.tv.agent.settingspqdb.permission.READ_DATA" />
-    <!-- För skrivprovet. Koden släpper bara igenom nyckeln Backlight. -->
+    <!-- För skrivprovet. Koden släpper bara igenom nycklarna i ProbeActivity.WRITABLE. -->
     <uses-permission android:name="com.mediatek.tv.agent.settingspqdb.permission.WRITE_DATA" />
 
     <!-- Android 11+ döljer andra appars leverantörer om de inte anges här. -->

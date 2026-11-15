@@ -12,7 +12,7 @@ import java.io.FileWriter;
 
 /**
  * Läser MediaTeks bilddatabas och skriver resultatet till en fil som adb kan hämta.
- * Enda skrivningen som går igenom är Backlight – provet ska inte kunna ändra något annat på TV:n.
+ * Bara nycklarna i WRITABLE går att skriva – provet ska inte kunna ändra något annat på TV:n.
  *
  * am start -n se.tvcal.pqprobe/.ProbeActivity --es paths general,source \
  *     [--es selection "..."] [--es args "a,b"] [--es projection "x,y"]
@@ -81,18 +81,52 @@ public class ProbeActivity extends Activity {
         finish();
     }
 
+    /**
+     * Nycklar som provet får skriva, med tillåtet intervall. Gain-intervallet är medvetet smalt
+     * (±10 % kring 1024) eftersom TV:ns verkliga intervall inte är känt än.
+     */
+    private static final java.util.Map<String, int[]> WRITABLE = new java.util.HashMap<>();
+    static {
+        WRITABLE.put("Backlight", new int[] {0, 100});
+        for (String c : new String[] {"Red", "Green", "Blue"}) {
+            WRITABLE.put("Color_Temperature_" + c + "_Gain", new int[] {922, 1126});
+            WRITABLE.put("Color_Temperature_Warm_" + c + "_Gain", new int[] {922, 1126});
+        }
+    }
+
+    /** Textnycklar som provet får skriva, med tillåtna värden. */
+    private static final java.util.Map<String, java.util.List<String>> WRITABLE_TEXT =
+            new java.util.HashMap<>();
+    static {
+        WRITABLE_TEXT.put("Color_Temperature", java.util.Arrays.asList("Warm", "Standard", "Cool"));
+    }
+
     /** Leverantören tar en nyckel per anrop: nyckelnamnet som kolumn, värdet som sträng. */
     private int write(String assignment) {
         String[] kv = assignment.split("=", 2);
-        if (kv.length != 2 || !"Backlight".equals(kv[0])) {
-            throw new IllegalArgumentException("bara Backlight=<0-100> är tillåtet");
+        if (kv.length != 2) {
+            throw new IllegalArgumentException("formatet är <nyckel>=<värde>");
         }
-        int value = Integer.parseInt(kv[1]);
-        if (value < 0 || value > 100) {
-            throw new IllegalArgumentException("värdet ska vara 0-100");
+        String value;
+        int[] range = WRITABLE.get(kv[0]);
+        java.util.List<String> allowed = WRITABLE_TEXT.get(kv[0]);
+        if (range != null) {
+            int n = Integer.parseInt(kv[1]);
+            if (n < range[0] || n > range[1]) {
+                throw new IllegalArgumentException(kv[0] + " ska vara " + range[0] + "-" + range[1]);
+            }
+            value = String.valueOf(n);
+        } else if (allowed != null) {
+            if (!allowed.contains(kv[1])) {
+                throw new IllegalArgumentException(kv[0] + " ska vara en av " + allowed);
+            }
+            value = kv[1];
+        } else {
+            throw new IllegalArgumentException(
+                    "tillåtna nycklar: " + WRITABLE.keySet() + " " + WRITABLE_TEXT.keySet());
         }
         ContentValues values = new ContentValues();
-        values.put(kv[0], String.valueOf(value));
+        values.put(kv[0], value);
         return getContentResolver().update(Uri.parse(BASE + "general"), values, null, null);
     }
 

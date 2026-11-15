@@ -2,8 +2,8 @@
 
 Fynd från läs-sonderingen 2026-11-14 (`scripts/detect_tv.sh` plus manuell granskning av två
 systemappar) och skrivproven 2026-11-15. Till TV:n har skrivits `Backlight`, `Color_Temperature`
-vitbalansens gain (aktiv 512–2047 och Warm-förinställning), offset och `Gamma`, allt återställt
-till ursprungsvärdena. Varje punkt är märkt **verifierat** (uppmätt eller avläst)
+vitbalansens gain (aktiv 512–2047 och Warm-förinställning), offset, `Gamma` och flerpunkts
+vitbalansen, allt återställt till ursprungsvärdena. Varje punkt är märkt **verifierat** (uppmätt eller avläst)
 eller **overifierat** (slutsats från namn i kod, inte provad).
 
 ## TV
@@ -209,8 +209,7 @@ relativt gain 1024 på samma ruta. Rådata i `data/probe/2026-11-15/Color_Temper
   men offset i strängen står kvar på 1024 för alla kanaler, också efter omladdning av läget.
 - **Verifierat:** blå offset 974–1074 på 10 % grått (video) gav ingen skillnad i luminans eller
   färgpunkt (1,619–1,622 cd/m², x/y inom 0,0002).
-- Kvar att pröva för den mörka änden: flerpunkts vitbalans (`PQ_WB_11_Point_*`), som också finns
-  i HAL-strängen.
+- Den mörka änden justeras i stället med flerpunkts vitbalansen, se nedan.
 
 #### Gamma 2026-11-15
 `Gamma` sveptes på video med grå rutor (10 % av ytan) på sex nivåer. Värdet inom parentes är
@@ -238,6 +237,39 @@ Rådata i `data/probe/2026-11-15/Gamma_*.csv`, mönstren gjorda med `scripts/mak
 - **Overifierat:** vad `Gamma_Mode` gör. Den stod kvar på `Gamma22` i HAL-strängen när `Gamma`
   ändrades.
 
+#### Flerpunkts vitbalans 2026-11-15
+Nycklarna `PQ_WB_11_Point_<0–11>_{Red,Green,Blue}` (0–100, 50 neutralt) och
+`PQ_WB_11_Point_enabled` (`On`/`Off`). Mätt på video med grå rutor (10 % av ytan) med
+`scripts/pq_levels.sh`, som mäter en rad nivåer före och efter en uppsättning skrivningar.
+Rådata i `data/probe/2026-11-15/levels_*.csv` och `PQ_WB_11_Point_5_Blue_*.csv`.
+
+- **Verifierat:** med `enabled=Off` når punktskrivningar inte HAL:en. Med `On` skickas de direkt
+  och slår igenom utan omladdning.
+- **Verifierat:** punkt *i* styr grånivån 5 % × (*i* + 1), alltså 5, 10, 15 … 60 %. Sju punkter
+  provades (0, 2, 3, 5, 8, 10, 11) mot förutsägelsen, med olika kanaler så att riktningen visade
+  vilken punkt som träffade. Effekten är lokal: den egna nivån flyttas mycket, nivån 5 % under
+  lite (till exempel 10 % med x/y +0,002/+0,004 när punkten för 15 % ändrades), nivån över inte alls.
+- **Verifierat:** nivåerna 65–100 % påverkas inte av någon punkt. Där gäller bara 2-punkts gain.
+- **Verifierat:** skalan är jämn och verkar åt båda hållen. Blå punkt 5 på 30 % grått:
+
+| Värde | Y (cd/m²) | x | y |
+|---|---|---|---|
+| 0 | 20,91 | 0,3521 | 0,3944 |
+| 20 | 21,17 | 0,3332 | 0,3610 |
+| 40 | 21,50 | 0,3152 | 0,3294 |
+| 50 | 21,70 | 0,3065 | 0,3149 |
+| 60 | 21,94 | 0,2984 | 0,3010 |
+| 80 | 22,48 | 0,2832 | 0,2740 |
+| 100 | 23,21 | 0,2692 | 0,2495 |
+
+  Ungefär 0,0008–0,0009 i x och 0,0013–0,0016 i y per steg, utan tak. 50 → 0 → 50 gav samma
+  värde tillbaka.
+- **Overifierat:** om skalan är densamma för röd och grön och på andra nivåer, och vad
+  `PQ_WB_11_Point_gain` (läst 0) gör.
+- Följd för det styrande programmet: gråskalan justeras i två lager – 2-punkts gain sätter vitt
+  och den övre delen, flerpunkts vitbalansen nivåerna 5–60 %. Ovanför 60 % finns ingen egen punkt,
+  så 65–95 % får följa gain och gamma.
+
 Fabrikstabellerna (`*_factory`) rörs inte av projektet.
 
 ### Inbyggd Calman-app
@@ -256,12 +288,11 @@ Fabrikstabellerna (`*_factory`) rörs inte av projektet.
 |---|---|
 | Identifiera TV, läsa egenskaper, installera och starta app | Fullt automatiserbart (verifierat) |
 | Visa SDR-mönster från egen app | Fullt automatiserbart; måste vara video för att bildbehandlingen ska verka (verifierat) |
-| Läsa och ändra bildinställningar | Automatiserbart via egen app med `settingspqdb`-behörighet (verifierat för `Backlight`, `Color_Temperature`, 2-punkts gain och `Gamma`; offset når inte panelen; övriga nycklar oprovade) |
+| Läsa och ändra bildinställningar | Automatiserbart via egen app med `settingspqdb`-behörighet (verifierat för `Backlight`, `Color_Temperature`, 2-punkts gain, `Gamma` och flerpunkts vitbalans; offset når inte panelen; färghanteringen oprovad) |
 | HDR10-mönster | Delvis – signalvägen måste verifieras med mätning |
 | LUT-skrivning via Calman-protokollet | Reserv, kräver omvänd ingenjörskonst |
 
-Nästa prov: flerpunkts vitbalans (`PQ_WB_11_Point_*`) på video, och vad som släcker 5 % grått vid
-hög gamma.
+Nästa prov: vad som släcker 5 % grått vid hög gamma, och färghanteringen (`COLORTUNER_*`).
 
 ## Mätdator
 

@@ -95,6 +95,10 @@ public class ProbeActivity extends Activity {
             // Offset: HAL:en får 1024 som noll fast nycklarna är tomma i databasen.
             WRITABLE.put("Color_Temperature_" + c + "_Offset", new int[] {512, 1536});
             WRITABLE.put("Color_Temperature_Warm_" + c + "_Offset", new int[] {512, 1536});
+            // Flerpunkts vitbalans: tolv punkter, 50 är neutralt.
+            for (int i = 0; i < 12; i++) {
+                WRITABLE.put("PQ_WB_11_Point_" + i + "_" + c, new int[] {0, 100});
+            }
         }
     }
 
@@ -103,6 +107,7 @@ public class ProbeActivity extends Activity {
             new java.util.HashMap<>();
     static {
         WRITABLE_TEXT.put("Color_Temperature", java.util.Arrays.asList("Warm", "Standard", "Cool"));
+        WRITABLE_TEXT.put("PQ_WB_11_Point_enabled", java.util.Arrays.asList("On", "Off"));
         java.util.List<String> gammas = java.util.Arrays.asList(
                 "Gamma18", "Gamma20", "Gamma22", "Gamma24", "Gamma26");   // BT1886 lagras men når aldrig HAL:en
         WRITABLE_TEXT.put("Gamma", gammas);

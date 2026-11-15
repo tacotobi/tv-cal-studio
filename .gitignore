@@ -3,3 +3,4 @@ data/probe/
 __pycache__/
 *.apk
 data/patterns/
+data/runs/

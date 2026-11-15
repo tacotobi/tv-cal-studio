@@ -78,3 +78,48 @@ def save(rows: list[GrayRow], directory: Path, name: str, meta: dict) -> Path:
     path = directory / f"{name}.txt"
     path.write_text(format_report(rows, meta.get("title", name)) + "\n")
     return path
+
+
+# Färgrutor: 100 % och 75 % av primärer och sekundärer.
+COLOR_PATCHES = {
+    f"{name} {int(level * 100)}%": tuple(level * c for c in rgb)
+    for level in (1.0, 0.75)
+    for name, rgb in [("Röd", (1, 0, 0)), ("Grön", (0, 1, 0)), ("Blå", (0, 0, 1)),
+                      ("Cyan", (0, 1, 1)), ("Magenta", (1, 0, 1)), ("Gul", (1, 1, 0))]
+}
+
+
+@dataclass
+class ColorRow:
+    name: str
+    rgb: tuple
+    Y: float
+    x: float
+    y: float
+    target_Y: float
+    target_x: float
+    target_y: float
+    delta_e: float
+
+
+def colors(show_rgb: Callable, measure: Callable[[], Reading], white_y: float,
+           patches: dict = COLOR_PATCHES, gamma: float = 2.2) -> list[ColorRow]:
+    """Mäter färgrutorna mot BT.709 med gamma och vitt white_y (D65)."""
+    rows = []
+    for name, rgb in patches.items():
+        show_rgb(rgb)
+        r = measure()
+        t = color.rgb_target(rgb, white_y, gamma)
+        rows.append(ColorRow(name, rgb, r.Y, r.x, r.y, t.Y, t.x, t.y,
+                             color.gray_delta_e(r, t, white_y)))
+    return rows
+
+
+def format_colors(rows: list[ColorRow], title: str) -> str:
+    lines = [title, "", f"{'färg':12} {'Y':>8} {'mål Y':>8} {'x':>7} {'mål x':>7} {'y':>7} {'mål y':>7} {'ΔE00':>6}"]
+    for r in rows:
+        lines.append(f"{r.name:12} {r.Y:8.2f} {r.target_Y:8.2f} {r.x:7.4f} {r.target_x:7.4f}"
+                     f" {r.y:7.4f} {r.target_y:7.4f} {r.delta_e:6.2f}")
+    des = [r.delta_e for r in rows]
+    lines += ["", f"ΔE00 medel {sum(des) / len(des):.2f}, max {max(des):.2f}. Mål: BT.709, D65, gamma 2,2."]
+    return "\n".join(lines)

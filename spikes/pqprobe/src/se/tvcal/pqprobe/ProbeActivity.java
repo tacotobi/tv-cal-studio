@@ -100,6 +100,17 @@ public class ProbeActivity extends Activity {
                 WRITABLE.put("PQ_WB_11_Point_" + i + "_" + c, new int[] {0, 100});
             }
         }
+        // Färghantering: nyans, mättnad och ljus per färg (R, G, B, cyan, magenta, gul, hud),
+        // samt RGB-gain och -offset. Alla står på 50 från början.
+        for (String a : new String[] {"H", "S", "Y"}) {
+            for (String f : new String[] {"R", "G", "B", "C", "M", "Y", "F"}) {
+                WRITABLE.put("COLORTUNER_" + a + "_" + f, new int[] {0, 100});
+            }
+        }
+        for (String c : new String[] {"R", "G", "B"}) {
+            WRITABLE.put("COLORTUNER_" + c + "_GAIN", new int[] {0, 100});
+            WRITABLE.put("COLORTUNER_" + c + "_OFFSET", new int[] {0, 100});
+        }
     }
 
     /** Textnycklar som provet får skriva, med tillåtna värden. */
@@ -108,6 +119,11 @@ public class ProbeActivity extends Activity {
     static {
         WRITABLE_TEXT.put("Color_Temperature", java.util.Arrays.asList("Warm", "Standard", "Cool"));
         WRITABLE_TEXT.put("PQ_WB_11_Point_enabled", java.util.Arrays.asList("On", "Off"));
+        WRITABLE_TEXT.put("COLORTUNER_SWITCH", java.util.Arrays.asList("On", "Off"));
+        // Värdena finns som strängar i TvAgentService; vilka som når panelen är oprovat.
+        WRITABLE_TEXT.put("Color_space", java.util.Arrays.asList(
+                "Auto", "BT709", "DCI", "DCI_P3", "BT2020", "Native", "Wide", "Standard"));
+        WRITABLE_TEXT.put("Gamut_Mapping", java.util.Arrays.asList("On", "Off"));
         java.util.List<String> gammas = java.util.Arrays.asList(
                 "Gamma18", "Gamma20", "Gamma22", "Gamma24", "Gamma26");   // BT1886 lagras men når aldrig HAL:en
         WRITABLE_TEXT.put("Gamma", gammas);

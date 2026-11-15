@@ -80,5 +80,26 @@ class GrayErrorTest(unittest.TestCase):
         self.assertAlmostEqual(color.effective_gamma(200.0 * 0.4 ** 2.35, 200.0, 0.4), 2.35)
 
 
+class RgbTargetTest(unittest.TestCase):
+    def test_white_is_d65(self):
+        t = color.rgb_target((1, 1, 1), 200.0)
+        self.assertAlmostEqual(t.Y, 200.0, places=2)
+        self.assertAlmostEqual(t.x, 0.3127, places=3)
+        self.assertAlmostEqual(t.y, 0.3290, places=3)
+
+    def test_primaries(self):
+        for rgb, xy, share in [((1, 0, 0), (0.64, 0.33), 0.2126), ((0, 1, 0), (0.30, 0.60), 0.7152),
+                               ((0, 0, 1), (0.15, 0.06), 0.0722)]:
+            t = color.rgb_target(rgb, 100.0)
+            self.assertAlmostEqual(t.x, xy[0], places=3)
+            self.assertAlmostEqual(t.y, xy[1], places=3)
+            self.assertAlmostEqual(t.Y, 100 * share, places=2)
+
+    def test_75_percent_uses_gamma(self):
+        t = color.rgb_target((0.75, 0, 0), 100.0, gamma=2.2)
+        self.assertAlmostEqual(t.Y, 21.26 * 0.75 ** 2.2, places=2)
+        self.assertAlmostEqual(t.x, 0.64, places=3)
+
+
 if __name__ == "__main__":
     unittest.main()

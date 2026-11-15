@@ -94,3 +94,17 @@ def gray_delta_e(measured: Reading, target: Reading, white_y: float, white_xy=D6
 def effective_gamma(y: float, white_y: float, level: float) -> float:
     """Den gamma som ger luminansen y vid nivån level, relativt vitt."""
     return math.log(y / white_y) / math.log(level)
+
+
+# BT.709/sRGB-primärer med D65, linjärt RGB → XYZ (Y för vitt = 1).
+BT709_TO_XYZ = ((0.4124, 0.3576, 0.1805),
+                (0.2126, 0.7152, 0.0722),
+                (0.0193, 0.1192, 0.9505))
+
+
+def rgb_target(rgb, white_y: float, gamma: float = 2.2) -> Reading:
+    """Målet för en färg med signalvärden rgb (0–1) i BT.709, gamma och vitt white_y."""
+    lin = [c ** gamma for c in rgb]
+    X, Y, Z = (white_y * sum(m * c for m, c in zip(row, lin)) for row in BT709_TO_XYZ)
+    s = X + Y + Z
+    return Reading(Y, X / s, Y / s) if s > 0 else Reading(0.0, *D65)

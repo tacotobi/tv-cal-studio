@@ -85,5 +85,20 @@ class MeterTest(unittest.TestCase):
         self.assertAlmostEqual(Meter(read=lambda: next(reads)).measure().Y, 0.0115)
 
 
+class ColorsTest(unittest.TestCase):
+    def test_sim_colors_report(self):
+        from tvcal.sim import SimMeter, SimTV
+        tv = SimTV()
+        m = SimMeter(tv)
+        tv.show_gray(1.0)
+        rows = measure.colors(tv.show_rgb, m.measure, white_y=m.measure().Y)
+        self.assertEqual(len(rows), 12)
+        red = rows[0]
+        self.assertEqual(red.name, "Röd 100%")
+        self.assertAlmostEqual(red.target_x, 0.64, places=3)
+        self.assertAlmostEqual(red.x, 0.632, places=2)      # simulerad panelprimär
+        self.assertIn("ΔE00 medel", measure.format_colors(rows, "prov"))
+
+
 if __name__ == "__main__":
     unittest.main()

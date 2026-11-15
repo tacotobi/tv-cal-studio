@@ -82,15 +82,16 @@ public class ProbeActivity extends Activity {
     }
 
     /**
-     * Nycklar som provet får skriva, med tillåtet intervall. Gain-intervallet är medvetet smalt
-     * (±10 % kring 1024) eftersom TV:ns verkliga intervall inte är känt än.
+     * Nycklar som provet får skriva, med tillåtet intervall. Gain antas vara 11 bitar med 1024
+     * som 1,0 (förinställningarna ligger på 855–1060); golvet 512 räcker för att se skalan och
+     * håller kanalen synlig.
      */
     private static final java.util.Map<String, int[]> WRITABLE = new java.util.HashMap<>();
     static {
         WRITABLE.put("Backlight", new int[] {0, 100});
         for (String c : new String[] {"Red", "Green", "Blue"}) {
-            WRITABLE.put("Color_Temperature_" + c + "_Gain", new int[] {922, 1126});
-            WRITABLE.put("Color_Temperature_Warm_" + c + "_Gain", new int[] {922, 1126});
+            WRITABLE.put("Color_Temperature_" + c + "_Gain", new int[] {512, 2047});
+            WRITABLE.put("Color_Temperature_Warm_" + c + "_Gain", new int[] {512, 2047});
         }
     }
 

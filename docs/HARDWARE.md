@@ -2,7 +2,7 @@
 
 Fynd från läs-sonderingen 2026-11-14 (`scripts/detect_tv.sh` plus manuell granskning av två
 systemappar) och skrivproven 2026-11-15. Till TV:n har skrivits `Backlight`, `Color_Temperature`
-och vitbalansens gain (aktiv och Warm-förinställning), allt återställt till ursprungsvärdena. Varje punkt är märkt **verifierat** (uppmätt eller avläst)
+och vitbalansens gain (aktiv 512–2047 och Warm-förinställning), allt återställt till ursprungsvärdena. Varje punkt är märkt **verifierat** (uppmätt eller avläst)
 eller **overifierat** (slutsats från namn i kod, inte provad).
 
 ## TV
@@ -159,8 +159,8 @@ Vad HAL:en fick, avläst i `logcat` efter varje skrivning:
 - **Verifierat:** den aktiva nyckeln `Color_Temperature_<färg>_Gain` skickas direkt och ersätter
   den kanalen i HAL:en tills läget laddas om. Databasens värde visar därför inte vad panelen har:
   den står på 1024 också när HAL:en kör förinställningens 976.
-- **Verifierat:** gain 1074 gav samma resultat som 1024 trots att HAL:en fick 1074, så värden över
-  1024 tycks inte ge mer. Overifierat var gränsen ligger och hur det går ihop med Cools blå 1060.
+- **Verifierat:** gain 1074 gav samma resultat som 1024 på vitt trots att HAL:en fick 1074. Se
+  "Gain-intervall" nedan.
 - **Verifierat:** grafikplanets vita (0,2945/0,3005) ligger nära video med gain 1024 på alla
   kanaler, inte nära Warm. Gränssnittet går alltså förbi färgtemperaturen.
 - Följd för projektet: mönster för vitbalans, gamma och färg måste visas som video. Svepet av
@@ -168,6 +168,38 @@ Vad HAL:en fick, avläst i `logcat` efter varje skrivning:
   grafikplanets och inte det som video och appar visar.
 - Följd för det styrande programmet: att ställa vitbalansen via förinställningen och ladda om läget
   ger ett tillstånd som går att läsa tillbaka ur databasen. Den aktiva nyckeln gör inte det.
+
+#### Gain-intervall 2026-11-15
+Aktiv gain per kanal, mätt på video med en ruta på 10 % i kanalens egen färg (BT.709, 100 %)
+och på vitt. Övriga kanaler på Warm-förinställningen, `Backlight=30`. Värdet är luminansen
+relativt gain 1024 på samma ruta. Rådata i `data/probe/2026-11-15/Color_Temperature_*_Gain_*.csv`.
+
+| Gain | Röd ruta | Grön ruta | Blå ruta |
+|---|---|---|---|
+| 512 | 0,281 | 0,232 | 0,155 |
+| 640 | | | 0,269 |
+| 768 | 0,549 | 0,514 | 0,431 |
+| 896 | | | 0,647 |
+| 976 | 0,895 | 0,920 | 0,848 |
+| 1024 | 1 (71,2 cd/m²) | 1 (257,4 cd/m²) | 1 (32,2 cd/m²) |
+| 1040 | | | 1,067 |
+| 1060 | 1,077 | 1,006 | 1,093 |
+| 1100 | 1,144 | 1,006 | 1,091 |
+| 1200–2047 | | | 1,091 |
+
+- **Verifierat:** spärren tog emot 512–2047 och HAL:en fick värdet oförändrat. Referensen 1024
+  mättes före, mitt i och efter varje svep och drev under 0,5 %.
+- **Verifierat:** gain verkar inte rakt på ljuset. 512 ger 15–28 % av ljuset, inte 50 %, och
+  kurvan skiljer sig mellan kanalerna. Gain verkar alltså på signalen före gammakurvan, och
+  sambandet måste mätas. Rutans färgpunkt flyttar sig också med gain (röd ruta x 0,632 → 0,560 vid
+  512), så rutorna mäter inte en ren kanal.
+- **Verifierat:** på vitt ger gain över 1024 inget för grönt och blått, och rött slutar vid 1036
+  (1036, 1060 och 1100 mätte lika, x 0,3023 mot 0,3018 vid 1024). Warm-förinställningens röda 1036
+  ligger alltså vid taket. På enfärgade rutor finns mer utrymme (blått till cirka 1060, rött över
+  1100), troligen för att BT.709-färgerna räknas om till panelens bredare omfång och inte styr
+  kanalen fullt. Den förklaringen är overifierad.
+- Följd för vitbalansen: i praktiken ställs den genom att sänka kanaler från 1024 (rött 1036).
+  Uppåt finns inget att hämta på vitt, nedåt räcker intervallet gott.
 
 Fabrikstabellerna (`*_factory`) rörs inte av projektet.
 
@@ -191,7 +223,7 @@ Fabrikstabellerna (`*_factory`) rörs inte av projektet.
 | HDR10-mönster | Delvis – signalvägen måste verifieras med mätning |
 | LUT-skrivning via Calman-protokollet | Reserv, kräver omvänd ingenjörskonst |
 
-Nästa prov: gain-intervallet (var värdet slutar ge effekt), offset och gamma, mätt på video.
+Nästa prov: offset och gamma, mätt på video.
 
 ## Mätdator
 

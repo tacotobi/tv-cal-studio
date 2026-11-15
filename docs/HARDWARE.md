@@ -2,7 +2,8 @@
 
 Fynd från läs-sonderingen 2026-11-14 (`scripts/detect_tv.sh` plus manuell granskning av två
 systemappar) och skrivproven 2026-11-15. Till TV:n har skrivits `Backlight`, `Color_Temperature`
-och vitbalansens gain (aktiv 512–2047 och Warm-förinställning), allt återställt till ursprungsvärdena. Varje punkt är märkt **verifierat** (uppmätt eller avläst)
+vitbalansens gain (aktiv 512–2047 och Warm-förinställning), offset och `Gamma`, allt återställt
+till ursprungsvärdena. Varje punkt är märkt **verifierat** (uppmätt eller avläst)
 eller **overifierat** (slutsats från namn i kod, inte provad).
 
 ## TV
@@ -201,6 +202,42 @@ relativt gain 1024 på samma ruta. Rådata i `data/probe/2026-11-15/Color_Temper
 - Följd för vitbalansen: i praktiken ställs den genom att sänka kanaler från 1024 (rött 1036).
   Uppåt finns inget att hämta på vitt, nedåt räcker intervallet gott.
 
+#### Offset 2026-11-15
+- **Verifierat:** offset går inte att styra via databasen. De aktiva nycklarna
+  `Color_Temperature_<färg>_Offset` och förinställningens `Color_Temperature_Warm_<färg>_Offset` är
+  tomma från början. Skrivna värden (974–1074) lagras, och HAL:en får en ny inställningssträng,
+  men offset i strängen står kvar på 1024 för alla kanaler, också efter omladdning av läget.
+- **Verifierat:** blå offset 974–1074 på 10 % grått (video) gav ingen skillnad i luminans eller
+  färgpunkt (1,619–1,622 cd/m², x/y inom 0,0002).
+- Kvar att pröva för den mörka änden: flerpunkts vitbalans (`PQ_WB_11_Point_*`), som också finns
+  i HAL-strängen.
+
+#### Gamma 2026-11-15
+`Gamma` sveptes på video med grå rutor (10 % av ytan) på sex nivåer. Värdet inom parentes är
+effektiv gamma, log(Y/Y_vit)/log(nivå), där nivån är rutans RGB-värde före BT.709-kodning.
+Rådata i `data/probe/2026-11-15/Gamma_*.csv`, mönstren gjorda med `scripts/make_pattern.sh`.
+
+| Nivå | Gamma18 | Gamma20 | Gamma22 | Gamma24 | Gamma26 |
+|---|---|---|---|---|---|
+| 100 % (cd/m²) | 354,5 | 354,1 | 353,8 | 353,9 | 353,6 |
+| 80 % | 239,9 (1,75) | 226,1 (2,01) | 214,9 (2,23) | 205,9 (2,43) | 193,0 (2,71) |
+| 50 % | 95,6 (1,90) | 82,5 (2,11) | 70,5 (2,34) | 60,6 (2,56) | 53,0 (2,75) |
+| 20 % | 16,8 (1,89) | 12,0 (2,10) | 8,57 (2,31) | 6,13 (2,52) | 4,41 (2,72) |
+| 10 % | 4,51 (1,91) | 2,81 (2,12) | 1,62 (2,36) | 0,98 (2,58) | 0,60 (2,79) |
+| 5 % | 1,149 (1,92) | 0,595 (2,15) | 0,323 (2,35) | 0 | 0 |
+
+- **Verifierat:** `Gamma` slår igenom direkt på video, och varje steg flyttar effektiv gamma med
+  cirka 0,2. Vitt påverkas inte. Referensen Gamma22 mätt före och efter varje svep skilde under 1 %.
+- **Verifierat:** under 80 % ligger kurvorna 0,1–0,2 över sitt namn (Gamma22 ger 2,31–2,36).
+  Vid 80 % ligger de närmare namnet eller under.
+- **Verifierat:** med Gamma24 och Gamma26 blir 5 % grått helt svart (0,000 cd/m² mot väntat
+  cirka 0,2–0,3). Med lägre gamma syns nivån. Overifierat om det är lokaldämpningen
+  (`LD_MODE=High`) som släcker.
+- **Verifierat:** `BT1886` lagras i databasen men når aldrig HAL:en, som behåller föregående
+  gamma. Värdet är borttaget ur provappens spärr.
+- **Overifierat:** vad `Gamma_Mode` gör. Den stod kvar på `Gamma22` i HAL-strängen när `Gamma`
+  ändrades.
+
 Fabrikstabellerna (`*_factory`) rörs inte av projektet.
 
 ### Inbyggd Calman-app
@@ -219,11 +256,12 @@ Fabrikstabellerna (`*_factory`) rörs inte av projektet.
 |---|---|
 | Identifiera TV, läsa egenskaper, installera och starta app | Fullt automatiserbart (verifierat) |
 | Visa SDR-mönster från egen app | Fullt automatiserbart; måste vara video för att bildbehandlingen ska verka (verifierat) |
-| Läsa och ändra bildinställningar | Automatiserbart via egen app med `settingspqdb`-behörighet (verifierat för `Backlight`, `Color_Temperature` och 2-punkts gain; övriga nycklar oprovade) |
+| Läsa och ändra bildinställningar | Automatiserbart via egen app med `settingspqdb`-behörighet (verifierat för `Backlight`, `Color_Temperature`, 2-punkts gain och `Gamma`; offset når inte panelen; övriga nycklar oprovade) |
 | HDR10-mönster | Delvis – signalvägen måste verifieras med mätning |
 | LUT-skrivning via Calman-protokollet | Reserv, kräver omvänd ingenjörskonst |
 
-Nästa prov: offset och gamma, mätt på video.
+Nästa prov: flerpunkts vitbalans (`PQ_WB_11_Point_*`) på video, och vad som släcker 5 % grått vid
+hög gamma.
 
 ## Mätdator
 

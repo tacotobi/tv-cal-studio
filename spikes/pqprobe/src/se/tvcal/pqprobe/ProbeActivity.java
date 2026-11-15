@@ -92,6 +92,9 @@ public class ProbeActivity extends Activity {
         for (String c : new String[] {"Red", "Green", "Blue"}) {
             WRITABLE.put("Color_Temperature_" + c + "_Gain", new int[] {512, 2047});
             WRITABLE.put("Color_Temperature_Warm_" + c + "_Gain", new int[] {512, 2047});
+            // Offset: HAL:en får 1024 som noll fast nycklarna är tomma i databasen.
+            WRITABLE.put("Color_Temperature_" + c + "_Offset", new int[] {512, 1536});
+            WRITABLE.put("Color_Temperature_Warm_" + c + "_Offset", new int[] {512, 1536});
         }
     }
 
@@ -100,6 +103,10 @@ public class ProbeActivity extends Activity {
             new java.util.HashMap<>();
     static {
         WRITABLE_TEXT.put("Color_Temperature", java.util.Arrays.asList("Warm", "Standard", "Cool"));
+        java.util.List<String> gammas = java.util.Arrays.asList(
+                "Gamma18", "Gamma20", "Gamma22", "Gamma24", "Gamma26");   // BT1886 lagras men når aldrig HAL:en
+        WRITABLE_TEXT.put("Gamma", gammas);
+        WRITABLE_TEXT.put("Gamma_Mode", gammas);
     }
 
     /** Leverantören tar en nyckel per anrop: nyckelnamnet som kolumn, värdet som sträng. */
@@ -111,7 +118,9 @@ public class ProbeActivity extends Activity {
         String value;
         int[] range = WRITABLE.get(kv[0]);
         java.util.List<String> allowed = WRITABLE_TEXT.get(kv[0]);
-        if (range != null) {
+        if (range != null && kv[1].isEmpty() && kv[0].endsWith("_Offset")) {
+            value = "";   // offset-nycklarna är tomma från början, så tomt måste gå att återställa
+        } else if (range != null) {
             int n = Integer.parseInt(kv[1]);
             if (n < range[0] || n > range[1]) {
                 throw new IllegalArgumentException(kv[0] + " ska vara " + range[0] + "-" + range[1]);

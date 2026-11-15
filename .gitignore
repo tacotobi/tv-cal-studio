@@ -2,3 +2,4 @@ data/probe/
 .venv/
 __pycache__/
 *.apk
+data/patterns/

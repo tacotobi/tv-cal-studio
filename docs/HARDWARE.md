@@ -410,6 +410,29 @@ Hela kedjan med `dimming` först, rapporter i `data/runs/2026-11-16_201604/`, å
 
 Fabrikstabellerna (`*_factory`) rörs inte av projektet.
 
+### Spektralkorrigering (CCSS) 2026-11-16
+I läget `Color_space=DCI` mäter grundfärgerna rött 0,6615/0,3225, grönt 0,2850/0,6599 och blått
+0,1561/0,0563 (okorrigerat; rådata `levels_Color_space_222429.csv`), nära DCI-P3. Det når inte vit
+LED; panelen är QD-Mini LED, som Xiaomis Mini LED-TV-apparater. Argyll har inga CCSS installerade
+(bara `-y n`/`r`), så korrigeringen hämtades ur DisplayCAL:s öppna databas
+(colorimetercorrections.displaycal.net, 5 576 CCSS).
+
+Vitt (Backlight=30) mätt utan och med tolv CCSS från QD- och QD-Mini LED-skärmar:
+
+| CCSS | x | y |
+|---|---|---|
+| Ingen | 0,3024 | 0,3118 |
+| QD, spridning (12 filer) | 0,2991–0,3009 | 0,3041–0,3071 |
+| QD, median | 0,3004 | 0,3060 |
+| **TCL 50C7K (JETI spectraval), vald** | 0,3002 | 0,3065 |
+| Mi TV, vit LED (jämförelse) | 0,3019 | 0,3079 |
+| LG, PFS-fosfor (jämförelse) | 0,3006 | 0,3068 |
+
+- **Verifierat:** alla korrigeringar flyttar vitt åt samma håll, cirka −0,002 i x och −0,005 i y
+  (ΔE00 cirka 2–3). Valet mellan QD-filerna gör högst ±0,0015 i y.
+- **Overifierat:** hur nära panelens eget spektrum filen ligger. Det kräver en spektrometer.
+- Filen ligger i `ccss/qd-miniled-tcl-50c7k.ccss` och är standard i `tvcal`; `--ccss none` mäter utan.
+
 ### Inbyggd Calman-app
 - **Verifierat:** `com.mediatek.calman` 1.0.30 (build 20231213) ligger i `/system_ext/app/Calman`,
   har `MainActivity` och håller `settingspqdb`-behörigheterna.
@@ -430,7 +453,7 @@ Fabrikstabellerna (`*_factory`) rörs inte av projektet.
 | HDR10-mönster | Delvis – signalvägen måste verifieras med mätning |
 | LUT-skrivning via Calman-protokollet | Reserv, kräver omvänd ingenjörskonst |
 
-Nästa prov: hela kedjan med `LD_MODE=Off`, och spektralkorrigering (CCSS) för mätaren.
+Nästa prov: en egen CCSS uppmätt med spektrometer på panelen, om en sådan går att låna.
 
 ## Mätdator
 

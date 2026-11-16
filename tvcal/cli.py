@@ -12,6 +12,14 @@ from .patterns import ROOT, gray_video, rgb_video
 from .tv import TV, TVError
 
 DEFAULT_TV = "192.168.1.50"
+# Spektralkorrigering för QD-Mini LED, uppmätt med JETI spectraval på en TCL 50C7K (DisplayCAL:s
+# databas). Ingen fil är uppmätt på just den här panelen; tolv QD-filer gav vitt inom ±0,0015 i y,
+# och den här låg i mitten. Se docs/HARDWARE.md.
+DEFAULT_CCSS = ROOT / "ccss" / "qd-miniled-tcl-50c7k.ccss"
+
+
+def _ccss(value: str) -> str | None:
+    return None if value == "none" else value
 # Nycklar som visar läget mätningen gjordes i. Läses före varje mätning och sparas i rapporten.
 STATE_KEYS = ["Backlight", "Gamma", "Color_Temperature", "Color_Temperature_Warm_Red_Gain",
               "Color_Temperature_Warm_Green_Gain", "Color_Temperature_Warm_Blue_Gain",
@@ -102,6 +110,8 @@ def cmd_calibrate(args) -> int:
         print(text, flush=True)
         log.write(text + "\n")
         log.flush()
+
+    note(f"Spektralkorrigering: {args.ccss or 'ingen'}")
 
     def white_y():
         show(1.0)
@@ -202,7 +212,8 @@ def main(argv=None) -> int:
     m = sub.add_parser("measure", help="mät gråskalan mot D65 och gamma 2,2; skriver inget till TV:n")
     m.add_argument("--step", type=int, default=5, help="steg i procent (standard 5)")
     m.add_argument("--window", type=int, default=10, help="rutans andel av ytan i procent")
-    m.add_argument("--ccss", help="spektralkorrigering för mätaren (spotread -X)")
+    m.add_argument("--ccss", type=_ccss, default=str(DEFAULT_CCSS),
+                   help="spektralkorrigering för mätaren (spotread -X); none = ingen")
     m.add_argument("--colors", action="store_true", help="mät också färgerna 100 %% och 75 %%")
     m.add_argument("--out", default=str(ROOT / "data" / "runs"))
     c = sub.add_parser("calibrate", help="kör kalibreringssteg; SKRIVER till TV:n")
@@ -215,7 +226,8 @@ def main(argv=None) -> int:
                    help="ställ vitt exakt på D65 i stället för halvvägs mot den övre gråskalans ton")
     c.add_argument("--target-y", type=float, default=200.0, help="vitt i cd/m² (standard 200)")
     c.add_argument("--window", type=int, default=10)
-    c.add_argument("--ccss")
+    c.add_argument("--ccss", type=_ccss, default=str(DEFAULT_CCSS),
+                   help="spektralkorrigering för mätaren; none = ingen")
     c.add_argument("--keep", action="store_true", help="behåll resultatet i stället för att återställa")
     c.add_argument("--out", default=str(ROOT / "data" / "runs"))
     r = sub.add_parser("restore", help="återställ bildinställningarna från en ögonblicksbild")

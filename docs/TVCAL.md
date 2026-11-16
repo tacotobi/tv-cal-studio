@@ -14,7 +14,7 @@ python3 -m tvcal.cli calibrate all --keep         # som ovan men behåll resulta
 python3 -m tvcal.cli calibrate backlight --target-y 200   # ett steg
 python3 -m tvcal.cli restore data/runs/<körning>/snapshot.json
 ```
-`--tv <ip>` väljer TV (standard 192.168.1.50), `--ccss <fil>` ger mätaren spektralkorrigering.
+`--tv <ip>` väljer TV (standard 192.168.1.50), `--ccss <fil>` ger mätaren spektralkorrigering; standard är `ccss/qd-miniled-tcl-50c7k.ccss`, `--ccss none` mäter utan.
 `measure --colors` mäter också färgerna 100 % och 75 % mot BT.709.
 
 Mål: D65, ren potens gamma 2,2 relativt uppmätt vitt, vitt 200 cd/m² (`--target-y`). Allt mäts
@@ -62,7 +62,7 @@ Ovanför 60 % finns ingen egen punkt, så 65–95 % följer gain och gamma.
 Körningar sparas i `data/runs/<datum>_<tid>/` (inte i git).
 
 ## Kända begränsningar
-- Utan CCSS för panelen stämmer vitpunkten inte i absoluta tal; relativa ändringar gör det.
+- CCSS:en kommer från en annan QD-Mini LED-panel. Vitpunkten i absoluta tal är därför osäker med cirka ±0,0015 i y; relativa ändringar stämmer.
 - Simuleringen är en förenkling (gain som potens 2,6, punktskala 0,016 per steg, färghanteringen
   anpassad till svepen av rött). Den fångar fel i looparna men ersätter inte prov på TV:n.
 - Färghanteringen når inte BT.709 för alla färger: panelens rött ligger åt orange, och nyansen

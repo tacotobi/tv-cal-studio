@@ -53,5 +53,28 @@ class CalibrateChainTest(unittest.TestCase):
         self.assertLess(mean_de("colors_after.txt"), mean_de("colors_before.txt"))
 
 
+class CcssTest(unittest.TestCase):
+    """Mätaren får panelens spektralkorrigering om inget annat anges."""
+
+    def meter_ccss(self, *extra):
+        tv = SimTV()
+        with tempfile.TemporaryDirectory() as out, \
+                mock.patch.object(cli, "TV", return_value=tv), \
+                mock.patch.object(cli, "Meter", return_value=SimMeter(tv)) as meter, \
+                mock.patch.object(cli, "_show", return_value=tv.show_gray), \
+                mock.patch.object(cli, "_show_rgb", return_value=tv.show_rgb), \
+                mock.patch("builtins.print"):
+            cli.main(["calibrate", "dimming", *extra, "--out", out])
+        return meter.call_args.kwargs["ccss"]
+
+    def test_default_is_panel_ccss(self):
+        path = self.meter_ccss()
+        self.assertEqual(path, str(cli.DEFAULT_CCSS))
+        self.assertTrue(Path(path).is_file())
+
+    def test_none_disables(self):
+        self.assertIsNone(self.meter_ccss("--ccss", "none"))
+
+
 if __name__ == "__main__":
     unittest.main()

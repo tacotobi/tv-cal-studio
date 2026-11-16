@@ -29,6 +29,7 @@ class CalibrateChainTest(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertEqual(snapshot.take(tv), before)
         self.assertEqual(tv.get("LD_MODE"), "High")
+        self.assertEqual(tv.get("Local_Contrast"), "Middle")
         self.assertTrue({"snapshot.json", "before.txt", "after.txt", "steps.txt",
                          "colors_before.txt", "colors_after.txt"} <= set(files))
 
@@ -37,6 +38,7 @@ class CalibrateChainTest(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertEqual(tv.get("PQ_WB_11_Point_enabled"), "On")
         self.assertEqual(tv.get("LD_MODE"), "Off")
+        self.assertEqual(tv.get("Local_Contrast"), "Off")
         from tvcal import measure
         meter = SimMeter(tv)
         rows = measure.grayscale(tv.show_gray, meter.measure, measure.default_levels(5))

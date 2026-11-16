@@ -387,7 +387,12 @@ cd/m²; rådata `data/probe/2026-11-16/levels_Backlight_19*.csv`.
   nivåer, och 10–20 % ligger nära kurvan i stället för 20–35 % under.
 - **Verifierat:** med `Off` lyfts svart till 0,042 cd/m² (cirka 4 800:1). Toppen ändras knappt.
 - **Verifierat:** `Low` sänker vitt till 122 cd/m² vid samma bakgrundsljus. Oklart varför.
-- Beslut: `calibrate all` stänger av lokaldämpningen först (steget `dimming`). Mönstret är en liten
+- **Verifierat** (samma villkor, `LD_MODE=Off`, rådata `levels_Backlight_2004*.csv` och
+  `_2009*.csv`): `Local_Contrast=Off` (från `Middle`; värden Off/Low/Middle/High/AIPQ, fabriksvärde
+  Off) ger 10 % +2,8 %, 50 % −2,4 % och 80 % −2,1 %. `Global_Dimming=Off` ändrar ingenting mätbart
+  (under 0,2 %) och lämnas. Av resten står `Auto_Backlight`, `Light_Sensor`, `DLC_STRENGTH`,
+  `Dark_Detail`, `Dynamic_Color_Booster`, `Peak_Bright`, `Low_Blue_Light` och `Live_Tone` redan på Off.
+- Beslut: `calibrate all` stänger av lokaldämpningen och den lokala kontrasten först (steget `dimming`). Mönstret är en liten
   ljus ruta på svart, där dämpningen gör mest; i vanliga scener ger den djupare svart men en kurva
   som beror på bildinnehållet.
 

@@ -7,7 +7,7 @@ from pathlib import Path
 # sedan färgtemperaturläget, som laddar om förinställningen till HAL:en.
 CHANNELS = ("Red", "Green", "Blue")
 KEYS = (
-    ["LD_MODE", "Backlight", "Gamma"]
+    ["LD_MODE", "Local_Contrast", "Backlight", "Gamma"]
     + [f"Color_Temperature_Warm_{c}_Gain" for c in CHANNELS]
     + [f"PQ_WB_11_Point_{i}_{c}" for i in range(12) for c in CHANNELS]
     + ["PQ_WB_11_Point_enabled"]

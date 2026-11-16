@@ -77,7 +77,8 @@ class SimTV:
 
     def __init__(self, backlight=30, gamma="Gamma22", mode="Warm"):
         self.db = {"Backlight": str(backlight), "Gamma": gamma, "Color_Temperature": mode,
-                   "PQ_WB_11_Point_enabled": "Off", "LD_MODE": "High", "Global_Dimming": "On"}
+                   "PQ_WB_11_Point_enabled": "Off", "LD_MODE": "High", "Global_Dimming": "On",
+                   "Local_Contrast": "Middle"}
         for name, gains in PRESETS.items():
             for c, g in zip(CHANNELS, gains):
                 self.db[f"Color_Temperature_{name}_{c}_Gain"] = str(g)

@@ -15,7 +15,7 @@ DEFAULT_TV = "192.168.1.50"
 # Nycklar som visar läget mätningen gjordes i. Läses före varje mätning och sparas i rapporten.
 STATE_KEYS = ["Backlight", "Gamma", "Color_Temperature", "Color_Temperature_Warm_Red_Gain",
               "Color_Temperature_Warm_Green_Gain", "Color_Temperature_Warm_Blue_Gain",
-              "PQ_WB_11_Point_enabled", "LD_MODE", "Global_Dimming"]
+              "PQ_WB_11_Point_enabled", "LD_MODE", "Local_Contrast", "Global_Dimming"]
 
 
 def cmd_check(args) -> int:
@@ -118,10 +118,12 @@ def cmd_calibrate(args) -> int:
             note(f"Färger före: ΔE00 max {max(r.delta_e for r in crows):.2f}")
         for step in steps:
             if step == "dimming":
-                # Lokaldämpningen släcker 5 % och trycker ner 10–20 %, olika beroende på bilden,
-                # så kurvan går bara att ställa med den avstängd. Först, eftersom den ändrar vitt.
+                # Lokaldämpningen släcker 5 % och trycker ner 10–20 %, och den lokala kontrasten
+                # flyttar mellantonerna 2–3 %; båda efter bildinnehållet, så kurvan går bara att
+                # ställa med dem avstängda. Först, eftersom dämpningen ändrar vitt.
                 tv.set("LD_MODE", "Off")
-                note("Lokaldämpningen avstängd (LD_MODE=Off)")
+                tv.set("Local_Contrast", "Off")
+                note("Lokaldämpning och lokal kontrast avstängda (LD_MODE=Off, Local_Contrast=Off)")
             elif step == "backlight":
                 res = calibrate.backlight(tv, show, meter.measure, target_y=args.target_y)
                 note(f"Backlight={res.value}: vitt {res.Y:.1f} cd/m² (mål {args.target_y:.0f}),"

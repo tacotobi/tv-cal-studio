@@ -31,7 +31,7 @@ på en ruta på 10 % av ytan som video, eftersom bildbehandlingen bara verkar p�
 ## Stegen (`tvcal/calibrate.py`)
 | Steg | Gör | Mätningar (simulerat) |
 |---|---|---|
-| `dimming` | `LD_MODE=Off`: lokaldämpningen släcker 5 % och trycker ner 10–20 % beroende på bilden | 0 |
+| `dimming` | `LD_MODE=Off` och `Local_Contrast=Off`: lokaldämpningen släcker 5 % och trycker ner 10–20 %, den lokala kontrasten flyttar mellantonerna 2–3 %, båda beroende på bilden | 0 |
 | `backlight` | Sekantsökning på `Backlight` mot målets Y på vitt, sedan grannarna; närmaste uppmätta väljs eftersom stegen är ojämna | 4–7 |
 | `whitepoint` | Vitt till D65 via `Color_Temperature_Warm_<färg>_Gain` och omladdning av läget. En kanal hålls på taket (1024, rött 1036), de två andra räknas fram med Newton-iteration | cirka 5 |
 | `gamma` | Väljer det förval (`Gamma18`–`Gamma26`) som ligger närmast målet på 70–90 %, där ingen punkt kan rätta | 15 |

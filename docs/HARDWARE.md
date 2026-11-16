@@ -392,7 +392,19 @@ cd/m²; rådata `data/probe/2026-11-16/levels_Backlight_19*.csv`.
   Off) ger 10 % +2,8 %, 50 % −2,4 % och 80 % −2,1 %. `Global_Dimming=Off` ändrar ingenting mätbart
   (under 0,2 %) och lämnas. Av resten står `Auto_Backlight`, `Light_Sensor`, `DLC_STRENGTH`,
   `Dark_Detail`, `Dynamic_Color_Booster`, `Peak_Bright`, `Low_Blue_Light` och `Live_Tone` redan på Off.
-- Beslut: `calibrate all` stänger av lokaldämpningen och den lokala kontrasten först (steget `dimming`). Mönstret är en liten
+- Beslut: `calibrate all` stänger av lokaldämpningen och den lokala kontrasten först (steget `dimming`).
+
+Hela kedjan med `dimming` först, rapporter i `data/runs/2026-11-16_201604/`, återställd efteråt:
+
+| ΔE00 medel / max | Före | Med dämpning (17:00) | Utan dämpning |
+|---|---|---|---|
+| Gråskala | 4,48 / 7,96 | 1,09 / 2,62 | 1,13 / 2,61 |
+| Färger 100 % + 75 % | – / 7,51 | 1,87 / 3,23 | 1,71 / 3,32 |
+
+- **Verifierat:** 5 % syns (0,43 cd/m² mot målet 0,29; svart lyfter nivån) och gamma ligger på
+  2,18–2,21 över 10–60 %. Bakgrundsljuset landade på 9 (204 cd/m²).
+- Restfelet är detsamma som förut: 65–95 % ligger cirka 0,004 högre i y än vitt (ΔE00 2,0–2,6),
+  och blått (2,8–3,3) går inte att förbättra. Mönstret är en liten
   ljus ruta på svart, där dämpningen gör mest; i vanliga scener ger den djupare svart men en kurva
   som beror på bildinnehållet.
 

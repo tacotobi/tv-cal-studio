@@ -338,6 +338,23 @@ Rutor på 10 % (video) i R, G, B, C, M, Y och vitt, före och efter en skrivning
   omfångets kant), nyansen sänker mest ljuset och ljuset blir blekare. Därför provar
   `tvcal`s färgsteg känsligheten nedåt.
 
+#### Hela kedjan med färgsteg 2026-11-16
+`tvcal calibrate all` (kompromiss för vitt, färgsteg), återställd efteråt. Rapporter i
+`data/runs/2026-11-16_023110/`.
+
+| | Före | Efter |
+|---|---|---|
+| Gråskala ΔE00 medel / max | 4,52 / 8,02 | 1,12 / 2,69 |
+| Färger 100 % + 75 % ΔE00 medel / max | 3,20 / 7,57 | 2,49 / 4,02 |
+
+- **Verifierat:** kompromissen sänkte 65–95 % från ΔE00 2,9–3,5 till 2,1–2,7. Vitt hamnade
+  på 0,3118/0,3276 (ΔE00 0,75), 80 % låg +0,0019/+0,0034 från vitt.
+- **Verifierat:** färgsteget förbättrar 100 % (rött 3,96 → 2,36, cyan 7,57 → 2,78, magenta
+  2,65 → 1,04) men ställs bara på 100 %, och några 75 %-färger blev sämre (grönt 1,60 → 2,80,
+  rött 2,64 → 2,99, magenta har 13 % för mycket ljus). Blått gick inte att förbättra (3,0).
+- Rött och grönt når inte BT.709: panelens rött ligger åt orange (y för högt) och grönt åt
+  gult, och nyansreglaget drar mest färgen inåt.
+
 Fabrikstabellerna (`*_factory`) rörs inte av projektet.
 
 ### Inbyggd Calman-app

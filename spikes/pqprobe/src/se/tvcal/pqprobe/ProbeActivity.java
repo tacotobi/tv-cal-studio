@@ -123,7 +123,7 @@ public class ProbeActivity extends Activity {
         // Värdena finns som strängar i TvAgentService; vilka som når panelen är oprovat.
         WRITABLE_TEXT.put("Color_space", java.util.Arrays.asList(
                 "Auto", "BT709", "DCI", "DCI_P3", "BT2020", "Native", "Wide", "Standard"));
-        WRITABLE_TEXT.put("Gamut_Mapping", java.util.Arrays.asList("On", "Off"));
+        WRITABLE_TEXT.put("Gamut_Mapping", java.util.Arrays.asList("Enable", "Disable"));
         java.util.List<String> gammas = java.util.Arrays.asList(
                 "Gamma18", "Gamma20", "Gamma22", "Gamma24", "Gamma26");   // BT1886 lagras men når aldrig HAL:en
         WRITABLE_TEXT.put("Gamma", gammas);

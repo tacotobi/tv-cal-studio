@@ -270,6 +270,49 @@ Rådata i `data/probe/2026-11-15/levels_*.csv` och `PQ_WB_11_Point_5_Blue_*.csv`
   och den övre delen, flerpunkts vitbalansen nivåerna 5–60 %. Ovanför 60 % finns ingen egen punkt,
   så 65–95 % får följa gain och gamma.
 
+#### Första hela gråskalekalibreringen 2026-11-15
+`tvcal calibrate all --target-y 200`, återställd efteråt. Rapporter i
+`data/runs/2026-11-15_232916/`.
+
+| | Före | Efter |
+|---|---|---|
+| ΔE00 medel / max (5–100 %) | 4,51 / 8,00 | 1,50 / 3,47 |
+| Vitt | 353 cd/m², x/y 0,3025/0,3125 | 203 cd/m², 0,3124/0,3297 |
+| Effektiv gamma 10–60 % | 2,30–2,37 | 2,18–2,24 |
+
+Stegen gav `Backlight=8`, Warm-gain 1009/1024/913 och `Gamma22`, och flerpunkts vitbalansen
+hamnade på 56–71 per kanal (ΔE00 0,2–1,0 per punkt).
+
+- **Verifierat:** 65–95 % ligger cirka +0,004 i y över vitt, både före och efter. Ingen punkt
+  når dit, så felet ligger kvar (ΔE00 2,9–3,5). `--white-compromise` (standard) lägger därför
+  vitt halvvägs mot 80 %-tonen.
+- **Verifierat:** 65–75 % blir 3–4 % för mörka och 85–95 % 3–7 % för ljusa. Gammaförvalet
+  kan inte rätta det.
+- **Verifierat:** vid `Backlight=8` blir 5 % helt svart (0,000 cd/m² mot målet 0,29), som vid
+  Gamma24/26 med `Backlight=30`. Zonen tycks släckas under cirka 0,2–0,3 cd/m², troligen av
+  lokaldämpningen (`LD_MODE=High`). Flerpunkts vitbalansen kan inte rätta det: utan ljus finns
+  inget att justera, och ΔE00 blir litet (0,7) fast nivån saknas helt.
+
+### Färgomfång 2026-11-16
+Rutor på 10 % (video) i R, G, B, C, M, Y och vitt, före och efter en skrivning
+(`scripts/pq_levels.sh`). Rådata i `data/probe/2026-11-16/levels_*.csv`.
+
+- **Verifierat:** `Gamut_Mapping` står på `Disable` (värdena är `Enable`/`Disable`). `Enable`
+  ändrade inget.
+- **Verifierat:** `Color_space=Auto` ger samma som `BT709`. `DCI` breddar omfånget tydligt
+  (grönt y +0,071, rött x +0,028). `Native` ändrade inget och är troligen inget giltigt värde.
+- **Verifierat:** `COLORTUNER_SWITCH=On` med alla värden på 50 ändrar inget.
+- Färgerna i `Auto` (bildläge Movie, okalibrerat Warm), mot BT.709 och gamma 2,2:
+
+| Färg | Y mot mål | x, y | Mål x, y |
+|---|---|---|---|
+| Röd | −2,4 % | 0,6335, 0,3438 | 0,6401, 0,3300 |
+| Grön | +4,5 % | 0,3141, 0,5885 | 0,3000, 0,6000 |
+| Blå | +8,8 % | 0,1561, 0,0555 | 0,1500, 0,0600 |
+| Cyan | +4,9 % | 0,2298, 0,3057 | 0,2247, 0,3287 |
+| Magenta | −2,2 % | 0,2985, 0,1400 | 0,3209, 0,1542 |
+| Gul | −0,8 % | 0,4168, 0,5124 | 0,4193, 0,5053 |
+
 Fabrikstabellerna (`*_factory`) rörs inte av projektet.
 
 ### Inbyggd Calman-app

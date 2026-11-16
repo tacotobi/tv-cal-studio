@@ -72,6 +72,10 @@ def _show(tv, window):
     return lambda level: tv.show_video(gray_video(level, window))
 
 
+def _show_rgb(tv, window):
+    return lambda rgb: tv.show_video(rgb_video(rgb, window))
+
+
 def cmd_calibrate(args) -> int:
     """Kör valda steg. Ögonblicksbild före; återställning efteråt om inte --keep anges."""
     tv = TV(args.tv)
@@ -88,8 +92,9 @@ def cmd_calibrate(args) -> int:
     print(f"Ögonblicksbild: {run_dir / 'snapshot.json'}")
     show = _show(tv, args.window)
     status = 0
-    steps = ["backlight", "whitepoint", "backlight", "gamma", "multipoint", "measure"] \
+    steps = ["backlight", "whitepoint", "backlight", "gamma", "multipoint", "colors", "measure"] \
         if args.steps == ["all"] else args.steps
+    show_rgb = _show_rgb(tv, args.window)
     log = (run_dir / "steps.txt").open("a")
 
     def note(text):
@@ -107,13 +112,20 @@ def cmd_calibrate(args) -> int:
             measure.save(rows, run_dir, "before", {"title": "Gråskala före", "state": snap})
             note(f"Före: ΔE00 medel {measure.summary(rows)['mean_delta_e']:.2f}, "
                  f"max {measure.summary(rows)['max_delta_e']:.2f}")
+            crows = measure.colors(show_rgb, meter.measure, white_y=rows[-1].Y)
+            (run_dir / "colors_before.txt").write_text(measure.format_colors(crows, "Färger före") + "\n")
+            note(f"Färger före: ΔE00 max {max(r.delta_e for r in crows):.2f}")
         for step in steps:
             if step == "backlight":
                 res = calibrate.backlight(tv, show, meter.measure, target_y=args.target_y)
                 note(f"Backlight={res.value}: vitt {res.Y:.1f} cd/m² (mål {args.target_y:.0f}),"
                      f" {'nått' if res.reached else 'INTE nått'}; prov {res.history}")
             elif step == "whitepoint":
-                res = calibrate.whitepoint(tv, show, meter.measure)
+                target = (0.3127, 0.3290)
+                if args.white_compromise:
+                    target, (dx, dy) = calibrate.compromise_white(show, meter.measure)
+                    note(f"80 % ligger {dx:+.4f}/{dy:+.4f} från vitt; mål för vitt {target[0]:.4f}/{target[1]:.4f}")
+                res = calibrate.whitepoint(tv, show, meter.measure, target_xy=target)
                 note(f"Vitpunkt: gain {res.gains}, x/y {res.reading.x:.4f}/{res.reading.y:.4f},"
                      f" Y {res.reading.Y:.1f}, {'nått' if res.reached else 'INTE nått'},"
                      f" {len(res.history)} mätningar")
@@ -125,11 +137,20 @@ def cmd_calibrate(args) -> int:
                     tv, show, meter.measure, white_y=white_y(),
                     log=lambda r: note(f"Punkt {r.index} ({r.level * 100:.0f} %): {r.values},"
                                        f" ΔE00 {r.delta_e:.2f}, {r.measurements} mätningar"))
+            elif step == "colors":
+                calibrate.colors(
+                    tv, show_rgb, meter.measure, white_y=white_y(),
+                    log=lambda r: note(f"Färg {r.name}: {r.values}, ΔE00 {r.delta_e:.2f},"
+                                       f" {r.measurements} mätningar"))
             elif step == "measure":
                 rows = measure.grayscale(show, meter.measure, measure.default_levels(5))
                 path = measure.save(rows, run_dir, "after",
                                     {"title": "Gråskala efter", "state": snapshot.take(tv)})
                 note(path.read_text())
+                crows = measure.colors(show_rgb, meter.measure, white_y=rows[-1].Y)
+                text = measure.format_colors(crows, "Färger efter")
+                (run_dir / "colors_after.txt").write_text(text + "\n")
+                note(text)
     except (TVError, MeterError) as e:
         print(f"FEL: {e}", file=sys.stderr)
         status = 1
@@ -178,9 +199,11 @@ def main(argv=None) -> int:
     m.add_argument("--out", default=str(ROOT / "data" / "runs"))
     c = sub.add_parser("calibrate", help="kör kalibreringssteg; SKRIVER till TV:n")
     c.add_argument("steps", nargs="+",
-                   choices=["all", "backlight", "whitepoint", "gamma", "multipoint", "measure"],
+                   choices=["all", "backlight", "whitepoint", "gamma", "multipoint", "colors", "measure"],
                    help="steg i tur och ordning; all = hela kedjan med mätning före och efter")
     c.add_argument("--before", action="store_true", help="mät gråskalan före stegen")
+    c.add_argument("--no-white-compromise", dest="white_compromise", action="store_false",
+                   help="ställ vitt exakt på D65 i stället för halvvägs mot den övre gråskalans ton")
     c.add_argument("--target-y", type=float, default=200.0, help="vitt i cd/m² (standard 200)")
     c.add_argument("--window", type=int, default=10)
     c.add_argument("--ccss")

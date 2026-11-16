@@ -7,6 +7,7 @@ ihop och flerpunkts vitbalans som bara verkar på sin egen nivå.
 """
 
 import bisect
+import math
 import random
 
 from .color import Reading, xyy_to_xyz
@@ -25,6 +26,8 @@ PRESETS = {"Warm": (1036, 1024, 976), "Standard": (980, 1000, 1024), "Cool": (85
 GAIN_CAP = {"Red": 1036, "Green": 1024, "Blue": 1024}
 GAIN_EXPONENT = 2.6          # gain verkar före gammakurvan; uppmätt 1,8–3,4 beroende på kanal och nivå
 POINT_STEP = 0.016           # relativ ändring av kanalen per steg i flerpunkts vitbalansen
+# Grått på 65–95 % ligger högre i y än vitt (uppmätt +0,004 före och efter kalibrering).
+TOP_TINT_Y = [(0.60, 0.0), (0.65, 0.004), (0.95, 0.004), (1.0, 0.0)]
 CHANNELS = ("Red", "Green", "Blue")
 
 
@@ -79,7 +82,7 @@ class SimTV:
                 self.db[f"COLORTUNER_{a}_{f}"] = "50"
         for c in "RGB":
             self.db[f"COLORTUNER_{c}_GAIN"] = self.db[f"COLORTUNER_{c}_OFFSET"] = "50"
-        self.db.update({"COLORTUNER_SWITCH": "Off", "Color_space": "Auto", "Gamut_Mapping": "On"})
+        self.db.update({"COLORTUNER_SWITCH": "Off", "Color_space": "Auto", "Gamut_Mapping": "Disable"})
         for c in CHANNELS:
             self.db[f"Color_Temperature_{c}_Gain"] = "1024"
             for i in range(12):
@@ -134,7 +137,29 @@ class SimTV:
         if Y <= 0:
             return Reading(0.0, 1 / 3, 1 / 3)
         s = X + Y + Z
-        return Reading(Y, X / s, Y / s)
+        tint = _interp(TOP_TINT_Y, self.rgb[1]) if len(set(self.rgb)) == 1 else 0.0
+        return self._tuner(Reading(Y, X / s, Y / s + tint))
+
+    def _tuner(self, r: Reading) -> Reading:
+        """Färghanteringen: ljus skalar, mättnad drar mot vitt, nyans vrider runt vitt.
+
+        Verkar bara på rena primär- och sekundärfärger, var och en med sina egna reglage
+        (uppmätt: röda reglage påverkade inte magenta eller gul). Skalorna är grova
+        uppskattningar från proven med 50 → 20.
+        """
+        if self.db["COLORTUNER_SWITCH"] != "On":
+            return r
+        on = tuple(c > 0 for c in self.rgb)
+        name = {(1, 0, 0): "R", (0, 1, 0): "G", (0, 0, 1): "B", (0, 1, 1): "C",
+                (1, 0, 1): "M", (1, 1, 0): "Y"}.get(tuple(map(int, on)))
+        if name is None:
+            return r
+        h, sat, lum = (int(self.db[f"COLORTUNER_{a}_{name}"]) - 50 for a in "HSY")
+        wx, wy = WHITE_1024
+        dx, dy = (r.x - wx) * (1 + 0.007 * sat), (r.y - wy) * (1 + 0.007 * sat)
+        ang = math.radians(1.0 * h)
+        dx, dy = dx * math.cos(ang) - dy * math.sin(ang), dx * math.sin(ang) + dy * math.cos(ang)
+        return Reading(r.Y * max(0.0, 1 + 0.019 * lum), wx + dx, wy + dy)
 
 
 class SimMeter:

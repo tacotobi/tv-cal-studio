@@ -227,67 +227,141 @@ def _solve3(m, v):
     return out
 
 
+def solve_three(tv, keys: dict, measure, target, white_y: float, white_xy=(0.3127, 0.3290),
+                tol_de: float = 1.0, max_iter: int = 4, probe: int = 8, lo: int = 0, hi: int = 100):
+    """Ställer tre reglage (namn -> nyckel) så att mätningen hamnar på target (Reading).
+
+    Känsligheten uppskattas med ett provsteg per reglage och används i en linjär lösning i
+    XYZ, som upprepas. Det bästa uppmätta läget behålls. Returnerar (värden, mätning, ΔE00,
+    antal mätningar). Mönstret ska redan visas.
+    """
+    from .color import gray_delta_e, xyy_to_xyz
+
+    names = list(keys)
+    target_xyz = xyy_to_xyz(target.x, target.y, target.Y)
+    values = {n: int(tv.get(keys[n])) for n in names}
+    count = 0
+    applied = dict(values)   # det som senast skrevs; provstegen lämnar TV:n i ett annat läge
+
+    def at(vals):
+        nonlocal count, applied
+        for n in names:
+            if applied[n] != vals[n]:
+                tv.set(keys[n], vals[n])
+        applied = dict(vals)
+        count += 1
+        r = measure()
+        return r, xyy_to_xyz(r.x, r.y, r.Y)
+
+    def de(r):
+        return gray_delta_e(r, target, white_y, white_xy)
+
+    r, xyz = at(values)
+    tried = [(dict(values), r)]
+    jac = {}
+    for n in names:
+        trial = dict(values)
+        trial[n] = values[n] + (probe if values[n] + probe <= hi else -probe)
+        rt, xyz_t = at(trial)
+        tried.append((dict(trial), rt))
+        jac[n] = [(a - b) / (trial[n] - values[n]) for a, b in zip(xyz_t, xyz)]
+    for _ in range(max_iter):
+        if de(r) <= tol_de:
+            break
+        m = [[jac[n][row] for n in names] for row in range(3)]
+        sol = _solve3(m, [t - a for t, a in zip(target_xyz, xyz)])
+        if sol is None:
+            break
+        new = {n: max(lo, min(hi, round(values[n] + d))) for n, d in zip(names, sol)}
+        if new == values:
+            break
+        r, xyz = at(new)
+        values = new
+        tried.append((dict(values), r))
+    best_vals, best = min(tried, key=lambda t: de(t[1]))
+    for n in names:
+        if applied[n] != best_vals[n]:
+            tv.set(keys[n], best_vals[n])
+    return best_vals, best, de(best), count
+
+
 def multipoint(tv, show, measure, white_y: float, gamma: float = 2.2,
                target_xy=(0.3127, 0.3290), indices=range(12), tol_de: float = 1.0,
                max_iter: int = 4, probe: int = 8, log=None) -> list[PointResult]:
     """Ställer varje punkt i flerpunkts vitbalansen mot målets luminans och färgpunkt.
 
     Punkterna verkar bara på sin egen nivå, så de ställs en i taget. Sambandet mellan
-    punktvärde och XYZ är nästan linjärt (uppmätt för blått), så känsligheten uppskattas
-    med ett provsteg per kanal och används i en linjär lösning i XYZ, som upprepas.
+    punktvärde och XYZ är nästan linjärt (uppmätt för blått).
     """
-    from .color import Reading, gray_delta_e, gray_target, xyy_to_xyz
+    from .color import gray_target
 
     tv.set("PQ_WB_11_Point_enabled", "On")
     results = []
     for i in indices:
         level = point_level(i)
         target = gray_target(level, white_y, gamma, target_xy)
-        target_xyz = xyy_to_xyz(target.x, target.y, target.Y)
-        keys = {c: f"PQ_WB_11_Point_{i}_{c}" for c in CHANNELS}
-        values = {c: int(tv.get(keys[c])) for c in CHANNELS}
         show(level)
-        count = 0
-
-        def at(vals):
-            nonlocal count
-            for c in CHANNELS:
-                if tv.get(keys[c]) != str(vals[c]):
-                    tv.set(keys[c], vals[c])
-            count += 1
-            r = measure()
-            return r, xyy_to_xyz(r.x, r.y, r.Y)
-
-        tried = []
-        r, xyz = at(values)
-        tried.append((dict(values), r))
-        jac = {}
-        for c in CHANNELS:
-            trial = dict(values)
-            trial[c] = values[c] + (probe if values[c] + probe <= 100 else -probe)
-            rt, xyz_t = at(trial)
-            tried.append((dict(trial), rt))
-            jac[c] = [(a - b) / (trial[c] - values[c]) for a, b in zip(xyz_t, xyz)]
-        for _ in range(max_iter):
-            if gray_delta_e(r, target, white_y, target_xy) <= tol_de:
-                break
-            m = [[jac[c][row] for c in CHANNELS] for row in range(3)]
-            sol = _solve3(m, [t - a for t, a in zip(target_xyz, xyz)])
-            if sol is None:
-                break
-            new = {c: max(0, min(100, round(values[c] + d))) for c, d in zip(CHANNELS, sol)}
-            if new == values:
-                break
-            r, xyz = at(new)
-            values = new
-            tried.append((dict(values), r))
-        best_vals, best = min(tried, key=lambda t: gray_delta_e(t[1], target, white_y, target_xy))
-        if best_vals != values:
-            for c in CHANNELS:
-                tv.set(keys[c], best_vals[c])
-        de = gray_delta_e(best, target, white_y, target_xy)
-        res = PointResult(i, level, best_vals, best, target, de, de <= tol_de, count)
+        vals, best, de, count = solve_three(
+            tv, {c: f"PQ_WB_11_Point_{i}_{c}" for c in CHANNELS}, measure, target, white_y,
+            target_xy, tol_de, max_iter, probe)
+        res = PointResult(i, level, vals, best, target, de, de <= tol_de, count)
         if log:
             log(res)
         results.append(res)
     return results
+
+
+# Färghanteringens färger: nyckelns bokstav och signalvärdet för 100 %.
+TUNER_COLORS = {"R": (1, 0, 0), "G": (0, 1, 0), "B": (0, 0, 1),
+                "C": (0, 1, 1), "M": (1, 0, 1), "Y": (1, 1, 0)}
+
+
+@dataclass
+class ColorResult:
+    name: str
+    values: dict
+    reading: object
+    target: object
+    delta_e: float
+    reached: bool
+    measurements: int
+
+
+def colors(tv, show_rgb, measure, white_y: float, gamma: float = 2.2, names=tuple(TUNER_COLORS),
+           tol_de: float = 1.0, max_iter: int = 4, probe: int = 4, log=None) -> list[ColorResult]:
+    """Ställer nyans, mättnad och ljus (COLORTUNER_H/S/Y_<färg>) mot BT.709 för varje färg.
+
+    Reglagen verkar bara på sin egen färg (uppmätt), så färgerna ställs en i taget på 100 %.
+    Gråskalan påverkas inte. Målet räknas från uppmätt vitt.
+    """
+    from .color import rgb_target
+
+    tv.set("COLORTUNER_SWITCH", "On")
+    results = []
+    for f in names:
+        rgb = TUNER_COLORS[f]
+        target = rgb_target(rgb, white_y, gamma)
+        show_rgb(rgb)
+        vals, best, de, count = solve_three(
+            tv, {a: f"COLORTUNER_{a}_{f}" for a in "HSY"}, measure, target, white_y,
+            tol_de=tol_de, max_iter=max_iter, probe=probe)
+        res = ColorResult(f, vals, best, target, de, de <= tol_de, count)
+        if log:
+            log(res)
+        results.append(res)
+    return results
+
+
+def compromise_white(show, measure, target_xy=(0.3127, 0.3290), level: float = 0.8):
+    """Målet för vitt när den övre gråskalan har en egen färgton.
+
+    Över 60 % finns ingen punkt i flerpunkts vitbalansen, och på TV:n ligger 65–95 % högre i y
+    än vitt. Vitt läggs därför halvvägs åt andra hållet, så att 100 % och `level` får lika stort
+    fel. Returnerar (målets x, y) och förskjutningen som mättes.
+    """
+    show(1.0)
+    white = measure()
+    show(level)
+    upper = measure()
+    dx, dy = upper.x - white.x, upper.y - white.y
+    return (target_xy[0] - dx / 2, target_xy[1] - dy / 2), (dx, dy)

@@ -15,6 +15,7 @@ python3 -m tvcal.cli calibrate backlight --target-y 200   # ett steg
 python3 -m tvcal.cli restore data/runs/<körning>/snapshot.json
 ```
 `--tv <ip>` väljer TV (standard 192.168.1.50), `--ccss <fil>` ger mätaren spektralkorrigering.
+`measure --colors` mäter också färgerna 100 % och 75 % mot BT.709.
 
 Mål: D65, ren potens gamma 2,2 relativt uppmätt vitt, vitt 200 cd/m² (`--target-y`). Allt mäts
 på en ruta på 10 % av ytan som video, eftersom bildbehandlingen bara verkar på videoplanet.
@@ -34,10 +35,14 @@ på en ruta på 10 % av ytan som video, eftersom bildbehandlingen bara verkar p�
 | `whitepoint` | Vitt till D65 via `Color_Temperature_Warm_<färg>_Gain` och omladdning av läget. En kanal hålls på taket (1024, rött 1036), de två andra räknas fram med Newton-iteration | cirka 5 |
 | `gamma` | Väljer det förval (`Gamma18`–`Gamma26`) som ligger närmast målet på 70–90 %, där ingen punkt kan rätta | 15 |
 | `multipoint` | `PQ_WB_11_Point_enabled=On`; varje punkt (nivå 5 % × (i+1)) ställs mot målets XYZ med linjär lösning från provsteg | cirka 60 |
-| `measure` | Gråskalan efter | 20 |
+| `colors` | `COLORTUNER_SWITCH=On`; nyans, mättnad och ljus (`COLORTUNER_H/S/Y_<färg>`) per färg R, G, B, C, M, Y mot BT.709 på 100 %. Mönstersökning på ΔE00 (±4, sedan ±2, ±1), eftersom reglagen har en knyck vid 50 där en linjär lösning spårar ur | högst 24 per färg |
+| `measure` | Gråskalan och färgerna efter | 32 |
 
 `all` kör `backlight`, `whitepoint`, `backlight` igen (sänkt gain ger mindre ljus), `gamma`,
-`multipoint` och `measure`, med mätning före.
+`multipoint`, `colors` och `measure`, med mätning av gråskala och färger före.
+
+Vitt ställs som standard halvvägs mot 80 %-tonen (`compromise_white`), eftersom 65–95 % ligger
+högre i y än vitt och ingen punkt når dit. `--no-white-compromise` ställer vitt exakt på D65.
 
 Ovanför 60 % finns ingen egen punkt, så 65–95 % följer gain och gamma.
 
@@ -57,7 +62,9 @@ Körningar sparas i `data/runs/<datum>_<tid>/` (inte i git).
 
 ## Kända begränsningar
 - Utan CCSS för panelen stämmer vitpunkten inte i absoluta tal; relativa ändringar gör det.
-- Simuleringen är en förenkling (gain som potens 2,6, punktskala 0,016 per steg). Den fångar
-  fel i looparna men ersätter inte prov på TV:n.
+- Simuleringen är en förenkling (gain som potens 2,6, punktskala 0,016 per steg, färghanteringen
+  anpassad till svepen av rött). Den fångar fel i looparna men ersätter inte prov på TV:n.
+- Färghanteringen når inte BT.709 för alla färger: panelens rött ligger åt orange, och nyansen
+  kan bara vrida det åt ena hållet.
 - `am start` per anrop gör en hel körning lång. Byggplanen har ett socketprotokoll i en egen app
   som nästa steg när det behövs.

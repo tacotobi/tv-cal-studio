@@ -313,6 +313,31 @@ Rutor på 10 % (video) i R, G, B, C, M, Y och vitt, före och efter en skrivning
 | Magenta | −2,2 % | 0,2985, 0,1400 | 0,3209, 0,1542 |
 | Gul | −0,8 % | 0,4168, 0,5124 | 0,4193, 0,5053 |
 
+### Färghantering (`COLORTUNER_*`) 2026-11-16
+`COLORTUNER_SWITCH=On` plus en ändring i taget, mätt på samma sju rutor. Rådata i
+`data/probe/2026-11-16/levels_COLORTUNER_*.csv` och `COLORTUNER_*_R_*.csv`.
+
+- **Verifierat:** reglagen `COLORTUNER_{H,S,Y}_<färg>` (färg R, G, B, C, M, Y, F för hud;
+  0–100, 50 neutralt) slår igenom direkt när `COLORTUNER_SWITCH=On`, och verkar bara på sin
+  egen färg. Röda reglage ändrade varken magenta, gul eller vitt; `S_C` ändrade bara cyan.
+- **Verifierat:** 50 → 20 ger stora effekter: `S_R` −73 % ljus på rött, `H_R` x −0,197/y −0,123,
+  `Y_R` −57 % ljus med oförändrad färgpunkt, `S_C` −22 % ljus på cyan.
+- **Verifierat:** `COLORTUNER_R_GAIN=30` ändrade inget. RGB-gain och -offset i färghanteringen
+  verkar inte nå panelen.
+- **Verifierat (rött, 100 %):** reglagen har en knyck vid 50.
+
+| Värde | `H_R`: Y, x, y | `S_R`: Y, x, y | `Y_R`: Y, x, y |
+|---|---|---|---|
+| 44 | 72,6, 0,6250, 0,3382 | 57,1, 0,6312, 0,3427 | 61,4, 0,6334, 0,3421 |
+| 48 | 72,5, 0,6326, 0,3431 | 66,3, 0,6328, 0,3433 | 68,9, 0,6335, 0,3431 |
+| 50 | 72,4, 0,6335, 0,3438 | 72,4, 0,6335, 0,3438 | 72,4, 0,6335, 0,3438 |
+| 52 | 72,0, 0,6329, 0,3440 | 72,4, 0,6335, 0,3438 | 73,0, 0,6321, 0,3448 |
+| 56 | 68,2, 0,6322, 0,3441 | 72,4, 0,6336, 0,3437 | 74,2, 0,6273, 0,3457 |
+
+  Under 50 svarar alla tre mjukt. Över 50 gör mättnaden ingenting (rött ligger vid
+  omfångets kant), nyansen sänker mest ljuset och ljuset blir blekare. Därför provar
+  `tvcal`s färgsteg känsligheten nedåt.
+
 Fabrikstabellerna (`*_factory`) rörs inte av projektet.
 
 ### Inbyggd Calman-app
@@ -331,11 +356,11 @@ Fabrikstabellerna (`*_factory`) rörs inte av projektet.
 |---|---|
 | Identifiera TV, läsa egenskaper, installera och starta app | Fullt automatiserbart (verifierat) |
 | Visa SDR-mönster från egen app | Fullt automatiserbart; måste vara video för att bildbehandlingen ska verka (verifierat) |
-| Läsa och ändra bildinställningar | Automatiserbart via egen app med `settingspqdb`-behörighet (verifierat för `Backlight`, `Color_Temperature`, 2-punkts gain, `Gamma` och flerpunkts vitbalans; offset når inte panelen; färghanteringen oprovad) |
+| Läsa och ändra bildinställningar | Automatiserbart via egen app med `settingspqdb`-behörighet (verifierat för `Backlight`, `Color_Temperature`, 2-punkts gain, `Gamma`, flerpunkts vitbalans och färghanteringens H/S/Y; offset och färghanteringens RGB-gain når inte panelen) |
 | HDR10-mönster | Delvis – signalvägen måste verifieras med mätning |
 | LUT-skrivning via Calman-protokollet | Reserv, kräver omvänd ingenjörskonst |
 
-Nästa prov: vad som släcker 5 % grått vid hög gamma, och färghanteringen (`COLORTUNER_*`).
+Nästa prov: vad som släcker de mörkaste nivåerna (lokaldämpningen?), och färghanteringen för 75 %-färger.
 
 ## Mätdator
 

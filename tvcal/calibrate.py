@@ -231,9 +231,9 @@ def solve_three(tv, keys: dict, measure, target, white_y: float, white_xy=(0.312
                 tol_de: float = 1.0, max_iter: int = 4, probe: int = 8, lo: int = 0, hi: int = 100):
     """Ställer tre reglage (namn -> nyckel) så att mätningen hamnar på target (Reading).
 
-    Känsligheten uppskattas med ett provsteg per reglage och används i en linjär lösning i
-    XYZ, som upprepas. Det bästa uppmätta läget behålls. Returnerar (värden, mätning, ΔE00,
-    antal mätningar). Mönstret ska redan visas.
+    Känsligheten uppskattas med ett provsteg per reglage (probe; negativt = nedåt) och används
+    i en linjär lösning i XYZ, som upprepas. Det bästa uppmätta läget behålls. Returnerar
+    (värden, mätning, ΔE00, antal mätningar). Mönstret ska redan visas.
     """
     from .color import gray_delta_e, xyy_to_xyz
 
@@ -261,7 +261,8 @@ def solve_three(tv, keys: dict, measure, target, white_y: float, white_xy=(0.312
     jac = {}
     for n in names:
         trial = dict(values)
-        trial[n] = values[n] + (probe if values[n] + probe <= hi else -probe)
+        step = probe if lo <= values[n] + probe <= hi else -probe
+        trial[n] = values[n] + step
         rt, xyz_t = at(trial)
         tried.append((dict(trial), rt))
         jac[n] = [(a - b) / (trial[n] - values[n]) for a, b in zip(xyz_t, xyz)]
@@ -327,12 +328,71 @@ class ColorResult:
     measurements: int
 
 
+def pattern_search(tv, keys: dict, measure, target, white_y: float, tol_de: float = 1.0,
+                   step: int = 4, budget: int = 24, lo: int = 0, hi: int = 100,
+                   min_gain: float = 0.05):
+    """Mönstersökning på ΔE2000: ett reglage i taget ±step, förbättringar behålls och steget
+    halveras när inget hjälper. Klarar reglage med knyck, där en linjär modell spårar ur.
+    Ett steg räknas bara om ΔE00 sjunker med minst min_gain, så att mätbrus och reglage
+    som inget gör inte äter upp mätningarna.
+
+    Returnerar (värden, mätning, ΔE00, antal mätningar). Mönstret ska redan visas.
+    """
+    from .color import gray_delta_e
+
+    names = list(keys)
+    values = {n: int(tv.get(keys[n])) for n in names}
+    applied = dict(values)
+    count = 0
+
+    def at(vals):
+        """Skriver vals, mäter och returnerar (ΔE00, mätning)."""
+        nonlocal count, applied
+        for n in names:
+            if applied[n] != vals[n]:
+                tv.set(keys[n], vals[n])
+        applied = dict(vals)
+        count += 1
+        r = measure()
+        return gray_delta_e(r, target, white_y), r
+
+    best_de, best_r = at(values)
+    while step >= 1 and best_de > tol_de and count < budget:
+        improved = False
+        for n in names:
+            for d in (step, -step):
+                moved = False
+                # Fortsätt åt samma håll så länge det blir bättre.
+                while count < budget and best_de > tol_de:
+                    trial = dict(values)
+                    trial[n] = max(lo, min(hi, values[n] + d))
+                    if trial == values:
+                        break
+                    de, r = at(trial)
+                    if de > best_de - min_gain:
+                        break
+                    values, best_de, best_r, moved = trial, de, r, True
+                if moved:
+                    improved = True
+                    break
+        if not improved:
+            step //= 2
+    for n in names:
+        if applied[n] != values[n]:
+            tv.set(keys[n], values[n])
+    return values, best_r, best_de, count
+
+
 def colors(tv, show_rgb, measure, white_y: float, gamma: float = 2.2, names=tuple(TUNER_COLORS),
-           tol_de: float = 1.0, max_iter: int = 4, probe: int = 4, log=None) -> list[ColorResult]:
+           tol_de: float = 1.0, budget: int = 24, log=None) -> list[ColorResult]:
     """Ställer nyans, mättnad och ljus (COLORTUNER_H/S/Y_<färg>) mot BT.709 för varje färg.
 
     Reglagen verkar bara på sin egen färg (uppmätt), så färgerna ställs en i taget på 100 %.
     Gråskalan påverkas inte. Målet räknas från uppmätt vitt.
+
+    Reglagen har en knyck vid 50 (uppmätt för rött): under 50 svarar alla tre mjukt, över 50
+    gör mättnaden ingenting och nyansen mest ljuset. En linjär lösning spårade ur på TV:n,
+    så färgerna ställs med mönstersökning på ΔE2000.
     """
     from .color import rgb_target
 
@@ -342,9 +402,9 @@ def colors(tv, show_rgb, measure, white_y: float, gamma: float = 2.2, names=tupl
         rgb = TUNER_COLORS[f]
         target = rgb_target(rgb, white_y, gamma)
         show_rgb(rgb)
-        vals, best, de, count = solve_three(
+        vals, best, de, count = pattern_search(
             tv, {a: f"COLORTUNER_{a}_{f}" for a in "HSY"}, measure, target, white_y,
-            tol_de=tol_de, max_iter=max_iter, probe=probe)
+            tol_de=tol_de, budget=budget)
         res = ColorResult(f, vals, best, target, de, de <= tol_de, count)
         if log:
             log(res)

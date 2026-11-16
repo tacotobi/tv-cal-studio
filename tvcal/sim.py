@@ -141,25 +141,40 @@ class SimTV:
         return self._tuner(Reading(Y, X / s, Y / s + tint))
 
     def _tuner(self, r: Reading) -> Reading:
-        """Färghanteringen: ljus skalar, mättnad drar mot vitt, nyans vrider runt vitt.
+        """Färghanteringen, anpassad till svepen av rött på TV:n (docs/HARDWARE.md).
 
-        Verkar bara på rena primär- och sekundärfärger, var och en med sina egna reglage
-        (uppmätt: röda reglage påverkade inte magenta eller gul). Skalorna är grova
-        uppskattningar från proven med 50 → 20.
+        Verkar bara på rena primär- och sekundärfärger, var och en med sina egna reglage.
+        Knyck vid 50: under 50 sänker mättnad och ljus luminansen och nyansen drar färgen
+        inåt och medurs; över 50 gör mättnaden ingenting, nyansen sänker luminansen och
+        ljuset höjer den men bleker färgen.
         """
         if self.db["COLORTUNER_SWITCH"] != "On":
             return r
-        on = tuple(c > 0 for c in self.rgb)
+        on = tuple(int(c > 0) for c in self.rgb)
         name = {(1, 0, 0): "R", (0, 1, 0): "G", (0, 0, 1): "B", (0, 1, 1): "C",
-                (1, 0, 1): "M", (1, 1, 0): "Y"}.get(tuple(map(int, on)))
+                (1, 0, 1): "M", (1, 1, 0): "Y"}.get(on)
         if name is None:
             return r
         h, sat, lum = (int(self.db[f"COLORTUNER_{a}_{name}"]) - 50 for a in "HSY")
+        Y, radial, angle = r.Y, 1.0, 0.0
+        if sat < 0:
+            Y *= 1 + 0.035 * sat
+            radial *= 1 + 0.0012 * sat
+        if h < 0:
+            angle -= 0.021 * h * h
+            radial *= 1 - 0.00073 * h * h
+        elif h > 0:
+            Y *= 1 - 0.0016 * h * h
+        if lum < 0:
+            Y *= 1 + 0.025 * lum
+        elif lum > 0:
+            Y *= 1 + 0.0042 * lum
+            radial *= 1 - 0.003 * lum
         wx, wy = WHITE_1024
-        dx, dy = (r.x - wx) * (1 + 0.007 * sat), (r.y - wy) * (1 + 0.007 * sat)
-        ang = math.radians(1.0 * h)
-        dx, dy = dx * math.cos(ang) - dy * math.sin(ang), dx * math.sin(ang) + dy * math.cos(ang)
-        return Reading(r.Y * max(0.0, 1 + 0.019 * lum), wx + dx, wy + dy)
+        dx, dy = (r.x - wx) * radial, (r.y - wy) * radial
+        a = math.radians(angle)
+        dx, dy = dx * math.cos(a) - dy * math.sin(a), dx * math.sin(a) + dy * math.cos(a)
+        return Reading(max(0.0, Y), wx + dx, wy + dy)
 
 
 class SimMeter:

@@ -156,12 +156,26 @@ class ColorsStepTest(unittest.TestCase):
         self.show(1.0)
         self.white = self.measure().Y
 
-    def test_all_colors_reach_target(self):
+    def test_colors_improve_or_stay(self):
+        # Reglagen når inte alltid BT.709 (panelens rött ligger åt orange), men inget får bli sämre.
+        from tvcal import color
+        before = {}
+        for f, rgb in calibrate.TUNER_COLORS.items():
+            self.tv.show_rgb(rgb)
+            before[f] = color.gray_delta_e(self.measure(), color.rgb_target(rgb, self.white), self.white)
         res = calibrate.colors(self.tv, self.tv.show_rgb, self.measure, white_y=self.white)
         self.assertEqual([r.name for r in res], list("RGBCMY"))
         for r in res:
-            self.assertTrue(r.reached, r)
+            self.assertLessEqual(r.delta_e, before[r.name] + 1e-9, r)
+            self.assertLessEqual(r.measurements, 24)
+        self.assertLess(sum(r.delta_e for r in res), sum(before.values()) - 1.0)
         self.assertEqual(self.tv.get("COLORTUNER_SWITCH"), "On")
+
+    def test_no_op_knob_left_alone(self):
+        # Mättnad över 50 gör inget på TV:n; sökningen ska inte lämna den där.
+        res = calibrate.colors(self.tv, self.tv.show_rgb, self.measure, white_y=self.white)
+        for r in res:
+            self.assertLessEqual(r.values["S"], 50, r)
 
     def test_gray_untouched(self):
         self.tv.show_gray(0.5)

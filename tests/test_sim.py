@@ -59,6 +59,22 @@ class SimTVTest(unittest.TestCase):
         tv.set("PQ_WB_11_Point_5_Blue", 0)
         self.assertEqual(SimMeter(tv).measure(), a)
 
+    def test_tuner_knee_matches_red_sweep(self):
+        tv = SimTV()
+        tv.set("COLORTUNER_SWITCH", "On")
+        tv.show_rgb((1, 0, 0))
+        meter = SimMeter(tv)
+        base = meter.measure()
+        tv.set("COLORTUNER_S_R", 56)
+        self.assertEqual(meter.measure(), base)               # mättnad över 50 gör inget
+        tv.set("COLORTUNER_S_R", 44)
+        self.assertAlmostEqual(meter.measure().Y / base.Y, 0.79, delta=0.03)
+        tv.set("COLORTUNER_S_R", 50)
+        tv.set("COLORTUNER_H_R", 44)
+        r = meter.measure()
+        self.assertAlmostEqual(r.x - base.x, -0.0085, delta=0.003)
+        self.assertAlmostEqual(r.y - base.y, -0.0056, delta=0.003)
+
 
 class SnapshotTest(unittest.TestCase):
     def test_restore_brings_back_preset_and_hal(self):

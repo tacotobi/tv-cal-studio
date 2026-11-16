@@ -328,33 +328,28 @@ class ColorResult:
     measurements: int
 
 
-def pattern_search(tv, keys: dict, measure, target, white_y: float, tol_de: float = 1.0,
-                   step: int = 4, budget: int = 24, lo: int = 0, hi: int = 100,
-                   min_gain: float = 0.05):
-    """Mönstersökning på ΔE2000: ett reglage i taget ±step, förbättringar behålls och steget
-    halveras när inget hjälper. Klarar reglage med knyck, där en linjär modell spårar ur.
-    Ett steg räknas bara om ΔE00 sjunker med minst min_gain, så att mätbrus och reglage
-    som inget gör inte äter upp mätningarna.
+def pattern_search(tv, keys: dict, score, tol_de: float = 1.0, step: int = 4, budget: int = 24,
+                   lo: int = 0, hi: int = 100, min_gain: float = 0.05):
+    """Mönstersökning: ett reglage i taget ±step, förbättringar behålls och steget halveras
+    när inget hjälper. Klarar reglage med knyck, där en linjär modell spårar ur.
 
-    Returnerar (värden, mätning, ΔE00, antal mätningar). Mönstret ska redan visas.
+    score() mäter det som visas och returnerar (fel, mätningar). Ett steg räknas bara om felet
+    sjunker med minst min_gain, så att mätbrus och reglage som inget gör inte äter upp
+    budgeten. Returnerar (värden, mätningar, fel, antal prov).
     """
-    from .color import gray_delta_e
-
     names = list(keys)
     values = {n: int(tv.get(keys[n])) for n in names}
     applied = dict(values)
     count = 0
 
     def at(vals):
-        """Skriver vals, mäter och returnerar (ΔE00, mätning)."""
         nonlocal count, applied
         for n in names:
             if applied[n] != vals[n]:
                 tv.set(keys[n], vals[n])
         applied = dict(vals)
         count += 1
-        r = measure()
-        return gray_delta_e(r, target, white_y), r
+        return score()
 
     best_de, best_r = at(values)
     while step >= 1 and best_de > tol_de and count < budget:
@@ -384,28 +379,40 @@ def pattern_search(tv, keys: dict, measure, target, white_y: float, tol_de: floa
 
 
 def colors(tv, show_rgb, measure, white_y: float, gamma: float = 2.2, names=tuple(TUNER_COLORS),
-           tol_de: float = 1.0, budget: int = 24, log=None) -> list[ColorResult]:
+           levels=(1.0, 0.75), tol_de: float = 1.0, budget: int = 20,
+           log=None) -> list[ColorResult]:
     """Ställer nyans, mättnad och ljus (COLORTUNER_H/S/Y_<färg>) mot BT.709 för varje färg.
 
-    Reglagen verkar bara på sin egen färg (uppmätt), så färgerna ställs en i taget på 100 %.
+    Reglagen verkar bara på sin egen färg (uppmätt), så färgerna ställs en i taget. Felet är
+    medel-ΔE00 över `levels`: ställd bara på 100 % blev flera 75 %-färger sämre på TV:n.
     Gråskalan påverkas inte. Målet räknas från uppmätt vitt.
 
     Reglagen har en knyck vid 50 (uppmätt för rött): under 50 svarar alla tre mjukt, över 50
     gör mättnaden ingenting och nyansen mest ljuset. En linjär lösning spårade ur på TV:n,
-    så färgerna ställs med mönstersökning på ΔE2000.
+    så färgerna ställs med mönstersökning.
+
+    ColorResult.reading/target gäller första nivån, delta_e är medlet och measurements antalet
+    prov (varje prov mäter alla nivåer).
     """
-    from .color import rgb_target
+    from .color import gray_delta_e, rgb_target
 
     tv.set("COLORTUNER_SWITCH", "On")
     results = []
     for f in names:
-        rgb = TUNER_COLORS[f]
-        target = rgb_target(rgb, white_y, gamma)
-        show_rgb(rgb)
-        vals, best, de, count = pattern_search(
-            tv, {a: f"COLORTUNER_{a}_{f}" for a in "HSY"}, measure, target, white_y,
-            tol_de=tol_de, budget=budget)
-        res = ColorResult(f, vals, best, target, de, de <= tol_de, count)
+        patches = [tuple(c * lv for c in TUNER_COLORS[f]) for lv in levels]
+        targets = [rgb_target(p, white_y, gamma) for p in patches]
+
+        def score():
+            readings = []
+            for p in patches:
+                show_rgb(p)
+                readings.append(measure())
+            des = [gray_delta_e(r, t, white_y) for r, t in zip(readings, targets)]
+            return sum(des) / len(des), readings
+
+        vals, readings, de, count = pattern_search(
+            tv, {a: f"COLORTUNER_{a}_{f}" for a in "HSY"}, score, tol_de=tol_de, budget=budget)
+        res = ColorResult(f, vals, readings[0], targets[0], de, de <= tol_de, count)
         if log:
             log(res)
         results.append(res)

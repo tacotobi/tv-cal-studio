@@ -35,7 +35,7 @@ på en ruta på 10 % av ytan som video, eftersom bildbehandlingen bara verkar p�
 | `whitepoint` | Vitt till D65 via `Color_Temperature_Warm_<färg>_Gain` och omladdning av läget. En kanal hålls på taket (1024, rött 1036), de två andra räknas fram med Newton-iteration | cirka 5 |
 | `gamma` | Väljer det förval (`Gamma18`–`Gamma26`) som ligger närmast målet på 70–90 %, där ingen punkt kan rätta | 15 |
 | `multipoint` | `PQ_WB_11_Point_enabled=On`; varje punkt (nivå 5 % × (i+1)) ställs mot målets XYZ med linjär lösning från provsteg | cirka 60 |
-| `colors` | `COLORTUNER_SWITCH=On`; nyans, mättnad och ljus (`COLORTUNER_H/S/Y_<färg>`) per färg R, G, B, C, M, Y mot BT.709 på 100 %. Mönstersökning på ΔE00 (±4, sedan ±2, ±1), eftersom reglagen har en knyck vid 50 där en linjär lösning spårar ur | högst 24 per färg |
+| `colors` | `COLORTUNER_SWITCH=On`; nyans, mättnad och ljus (`COLORTUNER_H/S/Y_<färg>`) per färg R, G, B, C, M, Y mot BT.709. Felet är medel-ΔE00 på 100 % och 75 % (ställt bara på 100 % blev 75 % sämre). Mönstersökning (±4, sedan ±2, ±1), eftersom reglagen har en knyck vid 50 där en linjär lösning spårar ur | högst 20 prov × 2 per färg |
 | `measure` | Gråskalan och färgerna efter | 32 |
 
 `all` kör `backlight`, `whitepoint`, `backlight` igen (sänkt gain ger mindre ljus), `gamma`,

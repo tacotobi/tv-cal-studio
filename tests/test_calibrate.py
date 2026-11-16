@@ -161,13 +161,18 @@ class ColorsStepTest(unittest.TestCase):
         from tvcal import color
         before = {}
         for f, rgb in calibrate.TUNER_COLORS.items():
-            self.tv.show_rgb(rgb)
-            before[f] = color.gray_delta_e(self.measure(), color.rgb_target(rgb, self.white), self.white)
+            des = []
+            for lv in (1.0, 0.75):
+                p = tuple(c * lv for c in rgb)
+                self.tv.show_rgb(p)
+                des.append(color.gray_delta_e(self.measure(), color.rgb_target(p, self.white),
+                                              self.white))
+            before[f] = sum(des) / 2
         res = calibrate.colors(self.tv, self.tv.show_rgb, self.measure, white_y=self.white)
         self.assertEqual([r.name for r in res], list("RGBCMY"))
         for r in res:
             self.assertLessEqual(r.delta_e, before[r.name] + 1e-9, r)
-            self.assertLessEqual(r.measurements, 24)
+            self.assertLessEqual(r.measurements, 20)
         self.assertLess(sum(r.delta_e for r in res), sum(before.values()) - 1.0)
         self.assertEqual(self.tv.get("COLORTUNER_SWITCH"), "On")
 

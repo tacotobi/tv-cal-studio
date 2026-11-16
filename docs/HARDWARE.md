@@ -355,6 +355,20 @@ Rutor på 10 % (video) i R, G, B, C, M, Y och vitt, före och efter en skrivning
 - Rött och grönt når inte BT.709: panelens rött ligger åt orange (y för högt) och grönt åt
   gult, och nyansreglaget drar mest färgen inåt.
 
+#### Färgsteget mot 100 % och 75 % 2026-11-16
+Samma kedja, men färgsteget minimerar medel-ΔE00 på 100 % och 75 %. Rapporter i
+`data/runs/2026-11-16_170050/`, återställd efteråt.
+
+| ΔE00 medel / max | Före | Bara 100 % | 100 % + 75 % |
+|---|---|---|---|
+| Gråskala | 4,41 / 8,05 | 1,12 / 2,69 | 1,09 / 2,62 |
+| Färger 100 % + 75 % | 3,20 / 7,41 | 2,49 / 4,02 | 1,87 / 3,23 |
+
+- **Verifierat:** 75 % blir inte längre sämre (grönt 75 % 1,62, rött 75 % 1,69, magenta
+  75 % 0,75). Kvar ligger blått (2,9–3,2) och cyan 100 % (3,2): blått gick inte att förbättra
+  med något reglage, och för cyan hittade sökningen inget bättre än 50/50/50.
+- Mätningen tar cirka 1 timme för hela kedjan; färgsteget är 20 prov × 2 rutor per färg.
+
 Fabrikstabellerna (`*_factory`) rörs inte av projektet.
 
 ### Inbyggd Calman-app

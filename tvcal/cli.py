@@ -140,8 +140,8 @@ def cmd_calibrate(args) -> int:
             elif step == "colors":
                 calibrate.colors(
                     tv, show_rgb, meter.measure, white_y=white_y(),
-                    log=lambda r: note(f"Färg {r.name}: {r.values}, ΔE00 {r.delta_e:.2f},"
-                                       f" {r.measurements} mätningar"))
+                    log=lambda r: note(f"Färg {r.name}: {r.values}, ΔE00 medel 100/75 % {r.delta_e:.2f},"
+                                       f" {r.measurements} prov"))
             elif step == "measure":
                 rows = measure.grayscale(show, meter.measure, measure.default_levels(5))
                 path = measure.save(rows, run_dir, "after",

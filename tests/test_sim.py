@@ -59,6 +59,14 @@ class SimTVTest(unittest.TestCase):
         tv.set("PQ_WB_11_Point_5_Blue", 0)
         self.assertEqual(SimMeter(tv).measure(), a)
 
+    def test_local_dimming_blacks_out_darkest_level(self):
+        # Uppmätt 2026-11-16 vid Backlight=8: 5 % blev 0 i alla lägen utom Off.
+        tv = SimTV(backlight=0)
+        tv.show_gray(0.05)
+        self.assertEqual(SimMeter(tv).measure().Y, 0.0)
+        tv.set("LD_MODE", "Off")
+        self.assertGreater(SimMeter(tv).measure().Y, 0.05)
+
     def test_tuner_knee_matches_red_sweep(self):
         tv = SimTV()
         tv.set("COLORTUNER_SWITCH", "On")

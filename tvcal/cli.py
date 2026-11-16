@@ -92,7 +92,8 @@ def cmd_calibrate(args) -> int:
     print(f"Ögonblicksbild: {run_dir / 'snapshot.json'}")
     show = _show(tv, args.window)
     status = 0
-    steps = ["backlight", "whitepoint", "backlight", "gamma", "multipoint", "colors", "measure"] \
+    steps = ["dimming", "backlight", "whitepoint", "backlight", "gamma", "multipoint", "colors",
+             "measure"] \
         if args.steps == ["all"] else args.steps
     show_rgb = _show_rgb(tv, args.window)
     log = (run_dir / "steps.txt").open("a")
@@ -116,7 +117,12 @@ def cmd_calibrate(args) -> int:
             (run_dir / "colors_before.txt").write_text(measure.format_colors(crows, "Färger före") + "\n")
             note(f"Färger före: ΔE00 max {max(r.delta_e for r in crows):.2f}")
         for step in steps:
-            if step == "backlight":
+            if step == "dimming":
+                # Lokaldämpningen släcker 5 % och trycker ner 10–20 %, olika beroende på bilden,
+                # så kurvan går bara att ställa med den avstängd. Först, eftersom den ändrar vitt.
+                tv.set("LD_MODE", "Off")
+                note("Lokaldämpningen avstängd (LD_MODE=Off)")
+            elif step == "backlight":
                 res = calibrate.backlight(tv, show, meter.measure, target_y=args.target_y)
                 note(f"Backlight={res.value}: vitt {res.Y:.1f} cd/m² (mål {args.target_y:.0f}),"
                      f" {'nått' if res.reached else 'INTE nått'}; prov {res.history}")
@@ -199,7 +205,8 @@ def main(argv=None) -> int:
     m.add_argument("--out", default=str(ROOT / "data" / "runs"))
     c = sub.add_parser("calibrate", help="kör kalibreringssteg; SKRIVER till TV:n")
     c.add_argument("steps", nargs="+",
-                   choices=["all", "backlight", "whitepoint", "gamma", "multipoint", "colors", "measure"],
+                   choices=["all", "dimming", "backlight", "whitepoint", "gamma", "multipoint",
+                            "colors", "measure"],
                    help="steg i tur och ordning; all = hela kedjan med mätning före och efter")
     c.add_argument("--before", action="store_true", help="mät gråskalan före stegen")
     c.add_argument("--no-white-compromise", dest="white_compromise", action="store_false",

@@ -124,6 +124,8 @@ public class ProbeActivity extends Activity {
         WRITABLE_TEXT.put("Color_space", java.util.Arrays.asList(
                 "Auto", "BT709", "DCI", "DCI_P3", "BT2020", "Native", "Wide", "Standard"));
         WRITABLE_TEXT.put("Gamut_Mapping", java.util.Arrays.asList("Enable", "Disable"));
+        // Lokaldämpningen; värdena står i /vendor/etc/pq/presetdb_test/PQGlobal_Range.json.
+        WRITABLE_TEXT.put("LD_MODE", java.util.Arrays.asList("Off", "Low", "Middle", "High"));
         java.util.List<String> gammas = java.util.Arrays.asList(
                 "Gamma18", "Gamma20", "Gamma22", "Gamma24", "Gamma26");   // BT1886 lagras men når aldrig HAL:en
         WRITABLE_TEXT.put("Gamma", gammas);

@@ -28,6 +28,10 @@ GAIN_EXPONENT = 2.6          # gain verkar före gammakurvan; uppmätt 1,8–3,4
 POINT_STEP = 0.016           # relativ ändring av kanalen per steg i flerpunkts vitbalansen
 # Grått på 65–95 % ligger högre i y än vitt (uppmätt +0,004 före och efter kalibrering).
 TOP_TINT_Y = [(0.60, 0.0), (0.65, 0.004), (0.95, 0.004), (1.0, 0.0)]
+# Lokaldämpningen släcker zonen helt under cirka 0,2–0,3 cd/m², i alla lägen utom Off
+# (5 % blev 0 vid Backlight=8 i High, Middle och Low). Att den också trycker ner 10–20 % och
+# lyfter svart till 0,04 cd/m² när den är av är inte med.
+LD_BLACKOUT_Y = 0.25
 CHANNELS = ("Red", "Green", "Blue")
 
 
@@ -134,6 +138,8 @@ class SimTV:
                 drive *= max(0.0, 1 + POINT_STEP * (int(self.db[f"PQ_WB_11_Point_{point}_{c}"]) - 50))
             cx, cy, cz = xyy_to_xyz(*PRIMARIES[c], drive * white * level ** gamma * _interp(TOP, level))
             X, Y, Z = X + cx, Y + cy, Z + cz
+        if self.db["LD_MODE"] != "Off" and Y < LD_BLACKOUT_Y:
+            Y = 0.0
         if Y <= 0:
             return Reading(0.0, 1 / 3, 1 / 3)
         s = X + Y + Z

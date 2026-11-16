@@ -31,6 +31,7 @@ på en ruta på 10 % av ytan som video, eftersom bildbehandlingen bara verkar p�
 ## Stegen (`tvcal/calibrate.py`)
 | Steg | Gör | Mätningar (simulerat) |
 |---|---|---|
+| `dimming` | `LD_MODE=Off`: lokaldämpningen släcker 5 % och trycker ner 10–20 % beroende på bilden | 0 |
 | `backlight` | Sekantsökning på `Backlight` mot målets Y på vitt, sedan grannarna; närmaste uppmätta väljs eftersom stegen är ojämna | 4–7 |
 | `whitepoint` | Vitt till D65 via `Color_Temperature_Warm_<färg>_Gain` och omladdning av läget. En kanal hålls på taket (1024, rött 1036), de två andra räknas fram med Newton-iteration | cirka 5 |
 | `gamma` | Väljer det förval (`Gamma18`–`Gamma26`) som ligger närmast målet på 70–90 %, där ingen punkt kan rätta | 15 |
@@ -38,7 +39,7 @@ på en ruta på 10 % av ytan som video, eftersom bildbehandlingen bara verkar p�
 | `colors` | `COLORTUNER_SWITCH=On`; nyans, mättnad och ljus (`COLORTUNER_H/S/Y_<färg>`) per färg R, G, B, C, M, Y mot BT.709. Felet är medel-ΔE00 på 100 % och 75 % (ställt bara på 100 % blev 75 % sämre). Mönstersökning (±4, sedan ±2, ±1), eftersom reglagen har en knyck vid 50 där en linjär lösning spårar ur | högst 20 prov × 2 per färg |
 | `measure` | Gråskalan och färgerna efter | 32 |
 
-`all` kör `backlight`, `whitepoint`, `backlight` igen (sänkt gain ger mindre ljus), `gamma`,
+`all` kör `dimming`, `backlight`, `whitepoint`, `backlight` igen (sänkt gain ger mindre ljus), `gamma`,
 `multipoint`, `colors` och `measure`, med mätning av gråskala och färger före.
 
 Vitt ställs som standard halvvägs mot 80 %-tonen (`compromise_white`), eftersom 65–95 % ligger

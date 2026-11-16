@@ -369,6 +369,28 @@ Samma kedja, men färgsteget minimerar medel-ΔE00 på 100 % och 75 %. Rapporter
   med något reglage, och för cyan hittade sökningen inget bättre än 50/50/50.
 - Mätningen tar cirka 1 timme för hela kedjan; färgsteget är 20 prov × 2 rutor per färg.
 
+#### Lokaldämpningen (`LD_MODE`) 2026-11-16
+`LD_MODE` tar `Off`, `Low`, `Middle` och `High` (`/vendor/etc/pq/presetdb_test/PQGlobal_Range.json`;
+fabriksvärdet i `PQGlobal_Initial.json` är `off`, men bildläget `Movie` stod på `High`). Provappen
+får skriva nyckeln. Mätt med `scripts/pq_levels.sh`, 10 % ruta på svart, `Backlight=8`, okalibrerat,
+cd/m²; rådata `data/probe/2026-11-16/levels_Backlight_19*.csv`.
+
+| `LD_MODE` | Svart | 5 % | 10 % | 20 % | Vitt |
+|---|---|---|---|---|---|
+| Mål gamma 2,2 | – | ≈0,28 | ≈1,30 | ≈5,9 | – |
+| High | 0 | 0 | 0,86 | 4,71 | 206 |
+| Middle | 0 | 0 | 0,76 | 4,45 | 208 |
+| Low | 0 | 0 | 0 | 3,33 | 122 |
+| Off | 0,042 | 0,41 | 1,33 | 6,25 | 200 |
+
+- **Verifierat:** det är lokaldämpningen som släcker 5 % (och 10 % i `Low`). Med `Off` syns alla
+  nivåer, och 10–20 % ligger nära kurvan i stället för 20–35 % under.
+- **Verifierat:** med `Off` lyfts svart till 0,042 cd/m² (cirka 4 800:1). Toppen ändras knappt.
+- **Verifierat:** `Low` sänker vitt till 122 cd/m² vid samma bakgrundsljus. Oklart varför.
+- Beslut: `calibrate all` stänger av lokaldämpningen först (steget `dimming`). Mönstret är en liten
+  ljus ruta på svart, där dämpningen gör mest; i vanliga scener ger den djupare svart men en kurva
+  som beror på bildinnehållet.
+
 Fabrikstabellerna (`*_factory`) rörs inte av projektet.
 
 ### Inbyggd Calman-app
@@ -391,7 +413,7 @@ Fabrikstabellerna (`*_factory`) rörs inte av projektet.
 | HDR10-mönster | Delvis – signalvägen måste verifieras med mätning |
 | LUT-skrivning via Calman-protokollet | Reserv, kräver omvänd ingenjörskonst |
 
-Nästa prov: vad som släcker de mörkaste nivåerna (lokaldämpningen?), och färghanteringen för 75 %-färger.
+Nästa prov: hela kedjan med `LD_MODE=Off`, och spektralkorrigering (CCSS) för mätaren.
 
 ## Mätdator
 

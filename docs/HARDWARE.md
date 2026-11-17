@@ -25,8 +25,42 @@ Allt i tabellen är verifierat.
   vy kan alltså inte begära brett färgomfång eller HDR.
 - **Verifierat:** `mMaxLuminance=100.0` i `HdrCapabilities` är ett platshållarvärde. TV:ns egna
   ljusuppgifter får inte användas som referens.
-- **Overifierat:** att HDR10-mönster via videoavkodning (HEVC 10 bitar, PQ, BT.2020) når panelen
-  utan omräkning. Ska mätas innan något HDR-resultat redovisas.
+- **Verifierat (2026-11-17):** HDR10-mönster via videoavkodning (HEVC Main10, PQ, BT.2020) når
+  panelen och följer PQ-kurvan upp till tonmappningen. Se "HDR10 från provappen" nedan.
+
+### HDR10 från provappen 2026-11-17
+Mönster från `scripts/make_pattern_hdr.sh` (HEVC Main10, 10-bitarskoder i begränsat omfång ritade
+direkt i YUV, P3/D65-metadata 1000/0,0001 cd/m², max-cll 1000,400), spelade i provappens vanliga
+`VideoView`. Mätt med `scripts/hdr_check.py`, CCSS `qd-miniled-tcl-50c7k`, ruta 10 %.
+Körning `data/runs/2026-11-17_123733_hdr10/`.
+
+- **TV:n byter läge:** `/hdr` svarar `HDR10` medan mönstret visas, `DispLink` loggar `Hdr 1`,
+  och bildläget blir `ImaxEnhanced`. Ingen `SurfaceView` eller `KEY_HDR_STATIC_INFO` behövs.
+- **Egna värden per HDR-typ:** i HDR10-läget står vitbalans, flerpunkts vitbalans och
+  färghantering på fabriksvärden (Warm 1036/1024/976, `PQ_WB_11_Point_enabled=Off`,
+  `COLORTUNER_SWITCH=Off`), `Backlight=100`, `Gamma_Mode=ST2084`, `TMO_Range=LevelPriority`,
+  `Global_Dimming=Off`, `LD_MODE=Off`. SDR-kalibreringen syns inte där, och en skrivning medan
+  HDR10 visas ändrar inte SDR. Nycklarna före och efter: `data/probe/2026-11-17/pqdb_general_{sdr,hdr10}.txt`.
+  Fabrikens förinställningar (`/vendor/etc/pq/presetdb_test/*.json`) ligger i `data/probe/2026-11-17/vendor_pq/`.
+- **PQ-kurvan** (mätt / kodens luminans):
+
+  | cd/m² | 1 | 5 | 10 | 20 | 50 | 100 | 203 | 400 | 600 | 700 | 800 | 1000 | 2000 | 4000 |
+  |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+  | mätt | 1,44 | 4,95 | 9,21 | 20,0 | 50,7 | 99,1 | 199,6 | 403 | 580 | 627 | 657 | 696 | 740 | 739 |
+  | kvot | 1,45 | 0,99 | 0,92 | 1,00 | 1,01 | 0,99 | 0,98 | 1,00 | 0,97 | 0,89 | 0,82 | 0,69 | 0,37 | 0,18 |
+
+  Kurvan följer PQ inom cirka ±4 % (10 cd/m² −8 %) från 5 till 600 cd/m² och avrundas sedan mot
+  cirka 740 cd/m². Svart är cirka 0,4 cd/m² (`Backlight=100`, lokaldämpningen av), så 1 cd/m²
+  ligger högt. Vitpunkten ligger blått över hela skalan: x 0,299–0,301, y 0,310–0,312 (D65
+  0,3127/0,3290).
+- **Yta och lokaldämpning** (1000 cd/m² i signalen): med `LD_MODE=Off` 688–690 cd/m² på 2, 10 och
+  25 % av ytan. Med `High` 308 (2 %), 684 (10 %) och 874 (25 %) – och 100 cd/m² blir 58 på 2 %.
+  Lokaldämpningen gör alltså ljuset beroende av ytan åt båda hållen; kalibrering görs utan den.
+- **Primärerna** (P3 inom BT.2020, andelar av vitt 100 cd/m²): röd 0,653/0,305 (P3 0,680/0,320),
+  grön 0,270/0,664 (0,265/0,690), blå 0,156/0,049 (0,150/0,060). Klart bredare än BT.709 – TV:n
+  tolkar signalen som BT.2020. Rött når inte P3 (panelens röda ligger åt orange, som i SDR).
+- **Metadata:** max-cll 1000, 4000 eller ingen metadata ger samma resultat (100 → 100,8–101,0;
+  1000 → 687–689). Tonmappningen är fast och följer inte strömmens metadata.
 
 ## Bildinställningar
 
@@ -469,7 +503,7 @@ där återställer läget före). Resultatet ligger kvar på TV:n: `LD_MODE=Off`
 | Identifiera TV, läsa egenskaper, installera och starta app | Fullt automatiserbart (verifierat) |
 | Visa SDR-mönster från egen app | Fullt automatiserbart; måste vara video för att bildbehandlingen ska verka (verifierat) |
 | Läsa och ändra bildinställningar | Automatiserbart via egen app med `settingspqdb`-behörighet (verifierat för `Backlight`, `Color_Temperature`, 2-punkts gain, `Gamma`, flerpunkts vitbalans och färghanteringens H/S/Y; offset och färghanteringens RGB-gain når inte panelen) |
-| HDR10-mönster | Delvis – signalvägen måste verifieras med mätning |
+| HDR10-mönster | Ja – HEVC Main10 från provappen, egna värden i HDR10-läget (2026-11-17) |
 | LUT-skrivning via Calman-protokollet | Reserv, kräver omvänd ingenjörskonst |
 
 Nästa prov: en egen CCSS uppmätt med spektrometer på panelen, om en sådan går att låna.

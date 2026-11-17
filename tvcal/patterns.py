@@ -30,3 +30,18 @@ def rgb_video(rgb, window: int = 10) -> Path:
 
 def gray_video(level: float, window: int = 10) -> Path:
     return rgb_video((level, level, level), window)
+
+
+HDR_SCRIPT = ROOT / "scripts" / "make_pattern_hdr.sh"
+
+
+def hdr_video(rgb_nits, window: int = 10, max_cll: str = "1000,400") -> Path:
+    """HDR10-ruta med linjärt BT.2020-RGB i cd/m² per kanal; max_cll "none" ger ingen metadata."""
+    from .hdr import ycbcr_codes
+    y, cb, cr = ycbcr_codes(rgb_nits)
+    meta = "" if max_cll == "1000,400" else "_cll" + max_cll.replace(",", "-")
+    path = CACHE / f"hdr_{y:04d}_{cb:04d}_{cr:04d}_w{window}{meta}.mp4"
+    if not path.exists():
+        subprocess.run([str(HDR_SCRIPT), str(path), f"{y},{cb},{cr}", str(window), max_cll],
+                       check=True, capture_output=True, text=True)
+    return path

@@ -41,7 +41,7 @@ HDR10: PQ (ST 2084) in absolute luminance and D65, with local dimming off. HEVC 
 the TV switch to HDR10, where it tracks PQ within about ±4 % up to 600 cd/m² and rolls off towards
 about 740 cd/m². The app refuses to read or write unless the TV is in HDR10, so the SDR calibration is
 never touched. Result on 2026-11-17 (white point and multi-point white balance): greyscale mean
-ΔE ITP 8.46 → 2.41 over 5–600 cd/m².
+ΔE ITP 8.46 → 1.97 over 5–600 cd/m², white point within 0.002 of D65 from 5 cd/m² up.
 
 ![HDR10 greyscale before and after the calibration on 2026-11-17](docs/img/hdr10-calibration-2026-11-17.png)
 

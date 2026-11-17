@@ -91,7 +91,12 @@ Körning `data/runs/2026-11-17_123733_hdr10/`.
 - **Avvikande mätningar:** en hel mätning (`hdr10 measure`, 17:28) gav 35 och 150 cd/m² 7–8 % för
   mörkt med x +0,004, y −0,003, trots omstart och dubbel avläsning; omätta minuter senare låg de
   rätt. 150 cd/m² visad i sju minuter utan byte av mönster var stabil (149,3, 0,3124/0,3285).
-  Orsaken är okänd – möjligen AISR (innehållsanpassad uppskalning), som nu är avstängd i HDR10.
+  Orsaken är okänd. Inte AISR: med AISR av (18:17) gav 203 cd/m² samma avvikelse (191,8,
+  0,3161/0,3270), och tre omätningar direkt efter låg på 207,1 och 0,3134/0,3295.
+- **Grafen i README** (`docs/img/hdr10-calibration-2026-11-17.png`): före från körningen 14:13,
+  efter från `data/runs/2026-11-17_181710_hdr10/` med 203 cd/m² ersatt av medlet av de tre
+  omätningarna (noterat i `after.json`). ΔE ITP medel 8,46 → 1,97, max 10,07 → 6,67 över
+  5–600 cd/m². Det största kvarvarande felet är ljuset vid 300 och 600 cd/m² (6–8 % under PQ).
 - **Skärpa och AISR i HDR10-läget:** `SR_Strength` (menyns Skärpa, 0–63) 10 → 0 och `AISR`
   (Off/Low/Middle/High) Middle → Off, satta via provappen medan HDR10 visades. SDR står kvar på
   3 och Middle.

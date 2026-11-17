@@ -1,50 +1,83 @@
 # tv-cal-studio
 
-Eget kalibreringsprogram för en Xiaomi Google TV. Det mäter med en i1Display Pro, visar mönster från
-en egen app på TV:n och skriver bildinställningarna direkt i TV:ns bilddatabas – utan TV:ns
-servicemeny eller Calman.
+Open source auto-calibration for a Xiaomi Google TV. It measures with an X-Rite i1Display Pro, shows
+test patterns from a small app on the TV, and writes the picture settings straight into the TV's
+MediaTek picture database – no service menu and no Calman licence needed.
 
-![Gråskala och färger före och efter kalibreringen 2026-11-16](docs/img/kalibrering-2026-11-16.png)
+![Greyscale and colours before and after the calibration on 2026-11-16](docs/img/kalibrering-2026-11-16.png)
 
-## TV:n
+## The TV
 
 | | |
 |---|---|
-| Modell | Xiaomi `MiTV-MOEU0` (kodnamn `ladybird`), Google TV / Android 14 |
+| Model | Xiaomi `MiTV-MOEU0` (codename `ladybird`), Google TV / Android 14 |
 | Panel | QD-Mini LED, 3840×2160 @ 60 Hz |
-| SoC | MediaTek MT9689 – inställningarna ligger i MediaTeks databas `settingspqdb` |
-| Bildläge | `Movie`, SDR, inbyggda appar |
+| SoC | MediaTek MT9689 – settings live in MediaTek's `settingspqdb` database |
+| Picture mode | `Movie`, SDR, built-in apps |
 
-HDR och HDMI-källor (Xbox, Switch) är inte kalibrerade än.
+Other TVs with a MediaTek SoC may expose the same database, but only this model has been tested.
+HDR and HDMI sources are not calibrated yet.
 
-## Mål
+## How it works
 
-BT.709, vitpunkt D65, gamma 2,2 och vitt på 200 cd/m², med lokaldämpningen avstängd.
+The TV's own picture processing only applies to the video plane, so patterns are played as video by
+an app on the TV (`spikes/pqprobe`). The same app has the (normal-level) permissions to read and write
+`settingspqdb`, and only accepts the keys and ranges in its allow-list. The computer drives it over
+`adb`, reads every write back, and runs the chain:
 
-## Det här behövs
+local dimming off → backlight → white point (2-point gain) → backlight → gamma preset →
+multi-point white balance → colour management → measurement
 
-- X-Rite i1Display Pro och [ArgyllCMS](https://www.argyllcms.com/) (`spotread`)
-- `adb` och en TV med nätverksfelsökning (ADB över TCP) påslagen, på samma nät som datorn
-- Provappen `spikes/pqprobe` installerad på TV:n (`spikes/pqprobe/build.sh`)
-- Python 3.14, inga andra paket
+A snapshot of every writable key is taken first, and the TV is restored afterwards – also on errors
+and Ctrl+C – unless `--keep` is given.
 
-`scripts/install_arch.sh` installerar verktygen på Arch Linux och `scripts/check_hardware.sh <tv-ip>`
-kontrollerar att allt hittas. Körningen sker helt lokalt, utan internet.
+## Target
 
-## Snabbstart
+BT.709, D65 white point, gamma 2.2 and 200 cd/m² white, with local dimming off.
+Result on 2026-11-16: greyscale mean ΔE2000 5.96 → 1.34 (max 10.25 → 3.14); colours 3.28 → 1.42.
+
+## Requirements
+
+- X-Rite i1Display Pro and [ArgyllCMS](https://www.argyllcms.com/) (`spotread`)
+- `adb`, and the TV on the same network with network debugging (ADB over TCP) enabled
+- The pattern app on the TV, built and installed with `spikes/pqprobe/build.sh` (JDK + Android SDK, no Gradle)
+- Python 3.14, standard library only
+- `ffmpeg` for the pattern videos
+
+`scripts/install_arch.sh` installs the tools on Arch Linux and `scripts/check_hardware.sh <tv-ip>`
+checks that everything is found. Everything runs locally; no internet connection is needed.
+
+## Quick start
 
 ```bash
-python3 -m tvcal.cli check                   # verktyg, mätare, TV och nuvarande inställningar
-python3 -m tvcal.cli measure --colors        # mät gråskala och färger, skriver inget
-python3 -m tvcal.cli calibrate all --keep    # hela kedjan, behåll resultatet
-python3 -m tvcal.cli restore data/runs/<körning>/snapshot.json   # tillbaka till före
-python3 -m unittest discover -s tests -t .   # tester mot en simulerad TV, ingen hårdvara
+export TVCAL_TV=192.168.1.50                 # the TV's address (or pass --tv every time)
+python3 -m tvcal.cli check                   # tools, meter, TV and current settings
+python3 -m tvcal.cli measure --colors        # measure greyscale and colours, writes nothing
+python3 -m tvcal.cli calibrate all --keep    # full chain, keep the result
+python3 -m tvcal.cli restore data/runs/<run>/snapshot.json   # back to before
+python3 -m unittest discover -s tests -t .   # tests against a simulated TV, no hardware
 ```
 
-`--tv <ip>` väljer TV. Utan `--keep` återställs TV:n efter körningen. Rapporter och ögonblicksbilder
-hamnar i `data/runs/`.
+Without `--keep` the TV is restored after the run. Reports and snapshots go to `data/runs/`.
 
-## Mer att läsa
+## Documentation
 
-- [`docs/TVCAL.md`](docs/TVCAL.md) – programmet, kalibreringsstegen och säkerheten
-- [`docs/HARDWARE.md`](docs/HARDWARE.md) – sonderingen av TV:n och vad varje inställning gör, med mätvärden
+The detailed docs are in Swedish:
+
+- [`docs/TVCAL.md`](docs/TVCAL.md) – the program, the calibration steps and safety
+- [`docs/HARDWARE.md`](docs/HARDWARE.md) – probing the TV and what each setting actually does, with measurements
+
+## Colorimeter correction
+
+`ccss/qd-miniled-tcl-50c7k.ccss` is a spectral correction for QD-Mini LED panels, measured with a
+JETI spectraval on a TCL 50C7K and taken from the DisplayCAL colorimeter corrections database. It is
+not measured on this panel; see `docs/HARDWARE.md` for how it was chosen.
+
+## Disclaimer
+
+This writes to undocumented settings on your TV. It has only been tested on one model and firmware
+(`V816.0.25.12.1.ULBMIXM`). Use at your own risk.
+
+## Licence
+
+[MIT](LICENSE)

@@ -1,7 +1,8 @@
 # tvcal – programmet
 
 Kalibrerar gråskalan på Xiaomi `MiTV-MOEU0` (bildläge `Movie`, inbyggda appar, SDR) med
-i1Display Pro. Vägen till bildinställningarna och varför den valdes: beslut 0001 i Cortex.
+i1Display Pro. Vägen till bildinställningarna: en egen app på TV:n skriver i MediaTeks
+bilddatabas `settingspqdb` (TV:ns Calman-läge är reserv).
 Mätfakta som stegen bygger på: `docs/HARDWARE.md`.
 
 ## Kommandon
@@ -14,7 +15,7 @@ python3 -m tvcal.cli calibrate all --keep         # som ovan men behåll resulta
 python3 -m tvcal.cli calibrate backlight --target-y 200   # ett steg
 python3 -m tvcal.cli restore data/runs/<körning>/snapshot.json
 ```
-`--tv <ip>` väljer TV (standard 192.168.1.50), `--ccss <fil>` ger mätaren spektralkorrigering; standard är `ccss/qd-miniled-tcl-50c7k.ccss`, `--ccss none` mäter utan.
+`--tv <ip>` väljer TV (standard miljövariabeln `TVCAL_TV`), `--ccss <fil>` ger mätaren spektralkorrigering; standard är `ccss/qd-miniled-tcl-50c7k.ccss`, `--ccss none` mäter utan.
 `measure --colors` mäter också färgerna 100 % och 75 % mot BT.709.
 
 Mål: D65, ren potens gamma 2,2 relativt uppmätt vitt, vitt 200 cd/m² (`--target-y`). Allt mäts

@@ -19,7 +19,7 @@ class CalibrateChainTest(unittest.TestCase):
                 mock.patch.object(cli, "_show", return_value=tv.show_gray), \
                 mock.patch.object(cli, "_show_rgb", return_value=tv.show_rgb), \
                 mock.patch("builtins.print"):
-            status = cli.main([*argv, "--out", out])
+            status = cli.main(["--tv", "192.0.2.10", *argv, "--out", out])
             files = {p.name: p.read_text() for p in Path(out).rglob("*") if p.is_file()}
         return status, tv, files
 
@@ -64,7 +64,7 @@ class CcssTest(unittest.TestCase):
                 mock.patch.object(cli, "_show", return_value=tv.show_gray), \
                 mock.patch.object(cli, "_show_rgb", return_value=tv.show_rgb), \
                 mock.patch("builtins.print"):
-            cli.main(["calibrate", "dimming", *extra, "--out", out])
+            cli.main(["--tv", "192.0.2.10", "calibrate", "dimming", *extra, "--out", out])
         return meter.call_args.kwargs["ccss"]
 
     def test_default_is_panel_ccss(self):
@@ -74,6 +74,34 @@ class CcssTest(unittest.TestCase):
 
     def test_none_disables(self):
         self.assertIsNone(self.meter_ccss("--ccss", "none"))
+
+
+class TvAddressTest(unittest.TestCase):
+    """TV:ns adress står inte i koden: den ges med --tv eller TVCAL_TV."""
+
+    def tv_address(self, argv, env):
+        tv = SimTV()
+        with mock.patch.dict("os.environ", env, clear=True), \
+                mock.patch.object(cli, "TV", return_value=tv) as made, \
+                mock.patch.object(cli, "Meter", return_value=SimMeter(tv)), \
+                mock.patch("builtins.print"):
+            cli.main([*argv, "check"])
+        return made.call_args.args[0]
+
+    def test_flag(self):
+        self.assertEqual(self.tv_address(["--tv", "192.0.2.10"], {}), "192.0.2.10")
+
+    def test_environment(self):
+        self.assertEqual(self.tv_address([], {"TVCAL_TV": "192.0.2.11"}), "192.0.2.11")
+
+    def test_flag_wins_over_environment(self):
+        self.assertEqual(self.tv_address(["--tv", "192.0.2.10"], {"TVCAL_TV": "192.0.2.11"}),
+                         "192.0.2.10")
+
+    def test_missing_address_is_an_error(self):
+        with mock.patch.dict("os.environ", {}, clear=True), \
+                mock.patch("sys.stderr"), self.assertRaises(SystemExit):
+            cli.main(["check"])
 
 
 if __name__ == "__main__":

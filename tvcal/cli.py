@@ -2,6 +2,7 @@
 
 import argparse
 import datetime
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -11,7 +12,6 @@ from .meter import Meter, MeterError
 from .patterns import ROOT, gray_video, rgb_video
 from .tv import TV, TVError
 
-DEFAULT_TV = "192.168.1.50"
 # Spektralkorrigering för QD-Mini LED, uppmätt med JETI spectraval på en TCL 50C7K (DisplayCAL:s
 # databas). Ingen fil är uppmätt på just den här panelen; tolv QD-filer gav vitt inom ±0,0015 i y,
 # och den här låg i mitten. Se docs/HARDWARE.md.
@@ -206,7 +206,9 @@ def cmd_restore(args) -> int:
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="tvcal", description="Kalibrering av Xiaomi MiTV-MOEU0")
-    p.add_argument("--tv", default=DEFAULT_TV, help="TV:ns adress (ip[:port])")
+    # Adressen står inte i koden; miljövariabeln slipper upprepas vid varje körning.
+    p.add_argument("--tv", default=os.environ.get("TVCAL_TV"),
+                   help="TV:ns adress (ip[:port]); standard är miljövariabeln TVCAL_TV")
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("check", help="verktyg, TV och nuvarande bildinställningar")
     m = sub.add_parser("measure", help="mät gråskalan mot D65 och gamma 2,2; skriver inget till TV:n")
@@ -233,6 +235,8 @@ def main(argv=None) -> int:
     r = sub.add_parser("restore", help="återställ bildinställningarna från en ögonblicksbild")
     r.add_argument("snapshot")
     args = p.parse_args(argv)
+    if not args.tv:
+        p.error("TV:ns adress saknas: ange --tv <ip> eller sätt TVCAL_TV")
     return {"check": cmd_check, "measure": cmd_measure, "calibrate": cmd_calibrate,
             "restore": cmd_restore}[args.cmd](args)
 

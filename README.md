@@ -4,7 +4,7 @@ Open source auto-calibration for a Xiaomi Google TV. It measures with an X-Rite 
 test patterns from a small app on the TV, and writes the picture settings straight into the TV's
 MediaTek picture database – no service menu and no Calman licence needed.
 
-![Greyscale and colours before and after the calibration on 2026-11-16](docs/img/kalibrering-2026-11-16.png)
+![Greyscale and colours before and after the calibration on 2026-11-16](docs/img/calibration-2026-11-16.png)
 
 ## The TV
 

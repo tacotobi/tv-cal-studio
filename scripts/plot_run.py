@@ -2,9 +2,9 @@
 """Ritar före och efter för en kalibreringskörning som SVG (och PNG om rsvg-convert finns).
 
 Läser before.txt, after.txt, colors_before.txt och colors_after.txt i körningens mapp och skriver
-report.svg och report.png bredvid dem. Inga beroenden utöver Python.
+report.svg och report.png bredvid dem (report_en.* med --lang en). Inga beroenden utöver Python.
 
-Användning: scripts/plot_run.py data/runs/<körning>
+Användning: scripts/plot_run.py [--lang en] data/runs/<körning>
 """
 
 import math
@@ -17,6 +17,28 @@ from pathlib import Path
 BEFORE, AFTER = "#eb6834", "#2a78d6"
 INK, INK2, MUTED, GRID, AXIS, SURFACE = "#0b0b0b", "#52514e", "#898781", "#e1e0d9", "#c3c2b7", "#fcfcfb"
 W, PAD_L, PAD_R = 1200, 80, 40
+
+# Engelska för README:n på GitHub; rapporterna och färgnamnen i körmappen är på svenska.
+TEXT = {
+    "sv": {"title": "Kalibrering {date} – före och efter", "gray": "Gråskala", "colors": "Färger",
+           "mean": "medel", "target": "Mål D65, gamma 2,2, BT.709", "before": "Före", "after": "Efter",
+           "p1": "Gråskala: färgfel ΔE00 per nivå (lägre är bättre)", "ref1": "ΔE00 1 – knappt synligt",
+           "p2": "Gråskala: effektiv gamma per nivå (mål 2,2)", "ref2": "mål 2,2",
+           "p3": "Färger: ΔE00 per färg och nivå mot BT.709", "names": {}},
+    "en": {"title": "Calibration {date} – before and after", "gray": "Greyscale", "colors": "Colours",
+           "mean": "mean", "target": "Target D65, gamma 2.2, BT.709", "before": "Before", "after": "After",
+           "p1": "Greyscale: colour error ΔE00 per level (lower is better)",
+           "ref1": "ΔE00 1 – barely visible",
+           "p2": "Greyscale: effective gamma per level (target 2.2)", "ref2": "target 2.2",
+           "p3": "Colours: ΔE00 per colour and level against BT.709",
+           "names": {"Röd": "Red", "Grön": "Green", "Blå": "Blue", "Gul": "Yellow"}},
+}
+LANG = "sv"
+
+
+def num(v, digits=2):
+    s = f"{v:.{digits}f}"
+    return s.replace(".", ",") if LANG == "sv" else s
 
 
 def gray(path: Path):
@@ -54,7 +76,7 @@ class Panel:
             y = self.y(t)
             self.out.append(f'<line x1="{self.x0}" x2="{self.x1}" y1="{y:.1f}" y2="{y:.1f}" stroke="{GRID}"/>')
             self.out.append(f'<text x="{self.x0 - 10}" y="{y + 4:.1f}" class="tick" text-anchor="end">'
-                            f'{fmt.format(t).replace(".", ",")}</text>')
+                            f'{fmt.format(t).replace(".", "," if LANG == "sv" else ".")}</text>')
         self.out.append(f'<line x1="{self.x0}" x2="{self.x1}" y1="{self.y(ymin):.1f}" '
                         f'y2="{self.y(ymin):.1f}" stroke="{AXIS}"/>')
 
@@ -98,7 +120,7 @@ def bar_panel(p: Panel, before, after):
             p.out.append(f'<path d="M{cx + dx:.1f},{base:.1f} V{y + 4:.1f} q0,-4 4,-4 H{cx + dx + bw - 4:.1f} '
                          f'q4,0 4,4 V{base:.1f} Z" fill="{color}"/>')
         p.out.append(f'<text x="{cx:.1f}" y="{p.top + p.h + 20}" class="tick" text-anchor="middle">'
-                     f'{name.split()[0]}</text>')
+                     f'{TEXT[LANG]["names"].get(name.split()[0], name.split()[0])}</text>')
         p.out.append(f'<text x="{cx:.1f}" y="{p.top + p.h + 36}" class="tick" text-anchor="middle">'
                      f'{name.split()[1]}</text>')
 
@@ -110,32 +132,34 @@ def main(run: Path) -> Path:
     cmb, cma = summary(run / "colors_before.txt"), summary(run / "colors_after.txt")
     levels = [r[0] for r in ga]
     xl = [f"{lv} %" if lv % 10 == 0 else "" for lv in levels]
-    num = lambda v: f"{v:.2f}".replace(".", ",")
+    t = TEXT[LANG]
 
     body = []
-    head = (f'<text x="{PAD_L}" y="48" class="h1">Kalibrering {run.name[:10]} – före och efter</text>'
-            f'<text x="{PAD_L}" y="78" class="sub">Gråskala ΔE00 medel {num(sb[0])} → {num(sa[0])}, '
-            f'max {num(sb[1])} → {num(sa[1])} · Färger medel {num(cmb[0])} → {num(cma[0])}, '
-            f'max {num(cmb[1])} → {num(cma[1])} · Mål D65, gamma 2,2, BT.709</text>'
+    head = (f'<text x="{PAD_L}" y="48" class="h1">{t["title"].format(date=run.name[:10])}</text>'
+            f'<text x="{PAD_L}" y="78" class="sub">{t["gray"]} ΔE00 {t["mean"]} {num(sb[0])} → {num(sa[0])}, '
+            f'max {num(sb[1])} → {num(sa[1])} · {t["colors"]} {t["mean"]} {num(cmb[0])} → {num(cma[0])}, '
+            f'max {num(cmb[1])} → {num(cma[1])} · {t["target"]}</text>'
             f'<rect x="{PAD_L}" y="96" width="14" height="14" rx="3" fill="{BEFORE}"/>'
-            f'<text x="{PAD_L + 22}" y="108" class="lbl">Före</text>'
-            f'<rect x="{PAD_L + 80}" y="96" width="14" height="14" rx="3" fill="{AFTER}"/>'
-            f'<text x="{PAD_L + 102}" y="108" class="lbl">Efter</text>')
+            f'<text x="{PAD_L + 22}" y="108" class="lbl">{t["before"]}</text>'
+            f'<rect x="{PAD_L + 90}" y="96" width="14" height="14" rx="3" fill="{AFTER}"/>'
+            f'<text x="{PAD_L + 112}" y="108" class="lbl">{t["after"]}</text>')
 
     top1 = 3 * math.ceil(max(r[4] for r in gb + ga) / 3)
-    p1 = Panel(170, 260, "Gråskala: färgfel ΔE00 per nivå (lägre är bättre)", 0, top1,
+    p1 = Panel(170, 260, t["p1"], 0, top1,
                range(0, top1 + 1, 3))
-    p1.ref(1, "ΔE00 1 – knappt synligt")
-    line_panel(p1, [(BEFORE, [r[4] for r in gb], "Före"), (AFTER, [r[4] for r in ga], "Efter")], levels, xl)
+    p1.ref(1, t["ref1"])
+    line_panel(p1, [(BEFORE, [r[4] for r in gb], t["before"]), (AFTER, [r[4] for r in ga], t["after"])],
+               levels, xl)
 
     low = min(1.8, math.floor(5 * min(r[3] for r in gb + ga if r[3] is not None)) / 5)
-    p2 = Panel(520, 260, "Gråskala: effektiv gamma per nivå (mål 2,2)", low, 2.5,
+    p2 = Panel(520, 260, t["p2"], low, 2.5,
                [round(low + 0.2 * i, 1) for i in range(int((2.5 - low) / 0.2 + 1e-9) + 1)], "{:.1f}")
-    p2.ref(2.2, "mål 2,2")
-    line_panel(p2, [(BEFORE, [r[3] for r in gb], "Före"), (AFTER, [r[3] for r in ga], "Efter")], levels, xl)
+    p2.ref(2.2, t["ref2"])
+    line_panel(p2, [(BEFORE, [r[3] for r in gb], t["before"]), (AFTER, [r[3] for r in ga], t["after"])],
+               levels, xl)
 
     top3 = 2 * math.ceil(max(v for _, v in cb + ca) / 2)
-    p3 = Panel(870, 260, "Färger: ΔE00 per färg och nivå mot BT.709", 0, top3, range(0, top3 + 1, 2))
+    p3 = Panel(870, 260, t["p3"], 0, top3, range(0, top3 + 1, 2))
     p3.ref(3, "ΔE00 3")
     bar_panel(p3, cb, ca)
 
@@ -156,16 +180,20 @@ text {{ font-family: "Inter", "DejaVu Sans", sans-serif; }}
 {chr(10).join(body)}
 </svg>
 '''
-    out = run / "report.svg"
+    stem = "report" if LANG == "sv" else f"report_{LANG}"
+    out = run / f"{stem}.svg"
     out.write_text(svg)
     if shutil.which("rsvg-convert"):
-        png = run / "report.png"
+        png = run / f"{stem}.png"
         subprocess.run(["rsvg-convert", "-o", str(png), str(out)], check=True)
         return png
     return out
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
+    args = sys.argv[1:]
+    if args[:1] == ["--lang"] and len(args) == 3 and args[1] in TEXT:
+        LANG, args = args[1], args[2:]
+    if len(args) != 1:
         sys.exit(__doc__)
-    print(main(Path(sys.argv[1])))
+    print(main(Path(args[0])))

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Ritar före och efter för en kalibreringskörning som SVG (och PNG om rsvg-convert finns).
 
-Läser before.txt, after.txt, colors_before.txt och colors_after.txt i körningens mapp och skriver
+Läser before.txt, after.txt, colors_before.txt och colors_after.txt i körningens mapp (för en
+HDR10-körning från `tvcal hdr10` i stället before.json och after.json) och skriver
 report.svg och report.png bredvid dem (report_en.* med --lang en). Inga beroenden utöver Python.
 
 Användning: scripts/plot_run.py [--lang en] data/runs/<körning>
@@ -91,7 +92,7 @@ class Panel:
         self.out.append(f'<text x="{self.x0 + 8}" y="{y - 6:.1f}" class="lbl">{label}</text>')
 
 
-def line_panel(p: Panel, series, xs, xlabels):
+def line_panel(p: Panel, series, xs, xlabels, label_at=-1):
     span = len(xs) - 1
     px = lambda i: p.x0 + 20 + (p.x1 - p.x0 - 40) * i / span
     for i, lab in enumerate(xlabels):
@@ -105,7 +106,7 @@ def line_panel(p: Panel, series, xs, xlabels):
         for a, b in pts:
             p.out.append(f'<circle cx="{a:.1f}" cy="{b:.1f}" r="4.5" fill="{color}" stroke="{SURFACE}" '
                          f'stroke-width="2"/>')
-        a, b = pts[-1]
+        a, b = pts[label_at]
         p.out.append(f'<text x="{a - 10:.1f}" y="{b - 12:.1f}" class="lbl" text-anchor="end">{name}</text>')
 
 
@@ -125,7 +126,103 @@ def bar_panel(p: Panel, before, after):
                      f'{name.split()[1]}</text>')
 
 
+HDR_TEXT = {
+    "sv": {"title": "HDR10-kalibrering {date} – före och efter",
+           "sub": "ΔE ITP medel {b} → {a}, max {bm} → {am} över 5–600 cd/m² · Mål PQ (ST 2084), D65",
+           "p1": "Färgfel ΔE ITP per nivå (lägre är bättre)", "ref1": "ΔE ITP 1 – precis märkbart",
+           "p2": "Ljus mot PQ-målet (uppmätt / mål)", "ref2": "mål",
+           "p3": "Vitpunktens avstånd från D65 (xy × 1000)",
+           "out": "grått: utanför 5–600 cd/m² (svart lyfter, toppen avrundas)"},
+    "en": {"title": "HDR10 calibration {date} – before and after",
+           "sub": "ΔE ITP mean {b} → {a}, max {bm} → {am} over 5–600 cd/m² · Target PQ (ST 2084), D65",
+           "p1": "Colour error ΔE ITP per level (lower is better)", "ref1": "ΔE ITP 1 – just noticeable",
+           "p2": "Light against the PQ target (measured / target)", "ref2": "target",
+           "p3": "White point distance from D65 (xy × 1000)",
+           "out": "grey: outside 5–600 cd/m² (black lifts, peak rolls off)"},
+}
+
+
+def hdr_main(run: Path) -> Path:
+    """HDR10-körning (before.json/after.json från tvcal hdr10): tre paneler mot PQ-nivåerna."""
+    import json
+    b, a = (json.loads((run / f).read_text()) for f in ("before.json", "after.json"))
+    rb, ra = b["rows"], a["rows"]
+    t = TEXT[LANG] | HDR_TEXT[LANG]
+    levels = [r["nits"] for r in ra]
+    xl = [num(n, 0) if n >= 1 and n == int(n) else num(n, 1) for n in levels]
+    sb, sa = b["summary"], a["summary"]
+    head = (f'<text x="{PAD_L}" y="48" class="h1">{t["title"].format(date=run.name[:10])}</text>'
+            f'<text x="{PAD_L}" y="78" class="sub">'
+            f'{t["sub"].format(b=num(sb["mean_itp"]), a=num(sa["mean_itp"]), bm=num(sb["max_itp"]), am=num(sa["max_itp"]))}'
+            f'</text>'
+            f'<rect x="{PAD_L}" y="96" width="14" height="14" rx="3" fill="{BEFORE}"/>'
+            f'<text x="{PAD_L + 22}" y="108" class="lbl">{t["before"]}</text>'
+            f'<rect x="{PAD_L + 90}" y="96" width="14" height="14" rx="3" fill="{AFTER}"/>'
+            f'<text x="{PAD_L + 112}" y="108" class="lbl">{t["after"]}</text>'
+            f'<text x="{PAD_L + 200}" y="108" class="lbl">{t["out"]}</text>')
+
+    inside = [5 <= n <= 600 for n in levels]
+    last = max(i for i, ok in enumerate(inside) if ok)   # etiketterna där, inte i det klippta
+
+    def shade(p):
+        # Grå bakgrund över nivåerna utanför sammanfattningen.
+        span = len(levels) - 1
+        px = lambda i: p.x0 + 20 + (p.x1 - p.x0 - 40) * i / span
+        half = (p.x1 - p.x0 - 40) / span / 2
+        for i, ok in enumerate(inside):
+            if not ok:
+                p.out.insert(1, f'<rect x="{px(i) - half:.1f}" y="{p.top}" width="{2 * half:.1f}" '
+                                f'height="{p.h}" fill="{GRID}" opacity="0.5"/>')
+
+    p1 = Panel(170, 260, t["p1"], 0, 12, range(0, 13, 3))
+    shade(p1)
+    p1.ref(1, t["ref1"])
+    line_panel(p1, [(BEFORE, [r["delta_itp"] for r in rb], t["before"]),
+                    (AFTER, [r["delta_itp"] for r in ra], t["after"])], levels, xl, last)
+
+    p2 = Panel(520, 260, t["p2"], 0.6, 1.2, [0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2], "{:.1f}")
+    shade(p2)
+    p2.ref(1.0, t["ref2"])
+    line_panel(p2, [(BEFORE, [r["Y"] / r["nits"] for r in rb], t["before"]),
+                    (AFTER, [r["Y"] / r["nits"] for r in ra], t["after"])], levels, xl, last)
+
+    dist = lambda r: 1000 * math.hypot(r["x"] - 0.3127, r["y"] - 0.3290)
+    p3 = Panel(870, 260, t["p3"], 0, 30, range(0, 31, 5))
+    shade(p3)
+    line_panel(p3, [(BEFORE, [dist(r) for r in rb], t["before"]),
+                    (AFTER, [dist(r) for r in ra], t["after"])], levels, xl, last)
+    return _write(run, head, [*p1.out, *p2.out, *p3.out])
+
+
+def _write(run: Path, head: str, body: list) -> Path:
+    h = 1200
+    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{h}" viewBox="0 0 {W} {h}">
+<style>
+text {{ font-family: "Inter", "DejaVu Sans", sans-serif; }}
+.h1 {{ font-size: 28px; font-weight: 600; fill: {INK}; }}
+.h2 {{ font-size: 19px; font-weight: 600; fill: {INK}; }}
+.sub {{ font-size: 16px; fill: {INK2}; }}
+.lbl {{ font-size: 14px; fill: {INK2}; }}
+.tick {{ font-size: 13px; fill: {MUTED}; }}
+</style>
+<rect width="100%" height="100%" fill="{SURFACE}"/>
+{head}
+{chr(10).join(body)}
+</svg>
+'''
+    stem = "report" if LANG == "sv" else f"report_{LANG}"
+    out = run / f"{stem}.svg"
+    out.write_text(svg)
+    if shutil.which("rsvg-convert"):
+        png = run / f"{stem}.png"
+        subprocess.run(["rsvg-convert", "-o", str(png), str(out)], check=True)
+        return png
+    return out
+
+
 def main(run: Path) -> Path:
+    if (run / "before.json").exists() and '"delta_itp"' in (run / "before.json").read_text():
+        return hdr_main(run)
     gb, ga = gray(run / "before.txt"), gray(run / "after.txt")
     cb, ca = colors(run / "colors_before.txt"), colors(run / "colors_after.txt")
     sb, sa = summary(run / "before.txt"), summary(run / "after.txt")
@@ -165,29 +262,7 @@ def main(run: Path) -> Path:
 
     for p in (p1, p2, p3):
         body += p.out
-    h = 1200
-    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{h}" viewBox="0 0 {W} {h}">
-<style>
-text {{ font-family: "Inter", "DejaVu Sans", sans-serif; }}
-.h1 {{ font-size: 28px; font-weight: 600; fill: {INK}; }}
-.h2 {{ font-size: 19px; font-weight: 600; fill: {INK}; }}
-.sub {{ font-size: 16px; fill: {INK2}; }}
-.lbl {{ font-size: 14px; fill: {INK2}; }}
-.tick {{ font-size: 13px; fill: {MUTED}; }}
-</style>
-<rect width="100%" height="100%" fill="{SURFACE}"/>
-{head}
-{chr(10).join(body)}
-</svg>
-'''
-    stem = "report" if LANG == "sv" else f"report_{LANG}"
-    out = run / f"{stem}.svg"
-    out.write_text(svg)
-    if shutil.which("rsvg-convert"):
-        png = run / f"{stem}.png"
-        subprocess.run(["rsvg-convert", "-o", str(png), str(out)], check=True)
-        return png
-    return out
+    return _write(run, head, body)
 
 
 if __name__ == "__main__":

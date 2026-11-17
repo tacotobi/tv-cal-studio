@@ -43,6 +43,8 @@ about 740 cd/m². The app refuses to read or write unless the TV is in HDR10, so
 never touched. Result on 2026-11-17 (white point and multi-point white balance): greyscale mean
 ΔE ITP 8.46 → 2.41 over 5–600 cd/m².
 
+![HDR10 greyscale before and after the calibration on 2026-11-17](docs/img/hdr10-calibration-2026-11-17.png)
+
 ## Requirements
 
 - X-Rite i1Display Pro and [ArgyllCMS](https://www.argyllcms.com/) (`spotread`)

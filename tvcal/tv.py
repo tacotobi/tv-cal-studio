@@ -17,10 +17,17 @@ class TVError(RuntimeError):
     pass
 
 
+class WrongHDRType(TVError):
+    """TV:n stod i en annan HDR-typ än require_hdr; provappen läste och skrev ingenting."""
+
+
 class TV:
-    def __init__(self, target: str, retries: int = 3):
+    def __init__(self, target: str, retries: int = 3, require_hdr: str | None = None):
         self.target = target if ":" in target else f"{target}:5555"
         self.retries = retries
+        # Värdena lagras per HDR-typ. Med require_hdr (t.ex. "HDR10") läser och skriver provappen
+        # bara när TV:n står i den typen, så att en HDR-körning aldrig rör SDR-värdena.
+        self.require_hdr = require_hdr
         self._pushed: set[str] = set()
 
     def _adb(self, *args: str, check: bool = False) -> str:
@@ -47,10 +54,14 @@ class TV:
         att ha lyckats med ett gammalt svar. Ett tomt värde (offset-nycklarna) är "".
         """
         self.shell("rm", "-f", RESULT)
+        guard = ("--es", "hdr", self.require_hdr) if self.require_hdr else ()
         self.shell("am", "start", "-W", "-n", f"{PKG}/.ProbeActivity", "--es", "paths", "none",
-                   "--es", "keys", key, *extra)
+                   "--es", "keys", key, *guard, *extra)
         time.sleep(1)
         for line in self.shell("cat", RESULT).splitlines():
+            if line.startswith("HDRFEL="):
+                raise WrongHDRType(f"TV:n står i {line[len('HDRFEL='):]}; {key} lästes eller "
+                                   "skrevs inte")
             if line.startswith(key + "="):
                 return line[len(key) + 1:]
         return None
@@ -86,4 +97,7 @@ class TV:
         time.sleep(settle)
 
     def home(self) -> None:
+        """Stänger mönstret och går till hemskärmen. Hemknappen ensam når ibland inte fram när
+        mönstret just startats, och då spelar videon vidare (och TV:n står kvar i HDR)."""
+        self.shell("am", "force-stop", PKG)
         self.shell("input", "keyevent", "KEYCODE_HOME")

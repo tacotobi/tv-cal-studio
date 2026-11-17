@@ -1,4 +1,4 @@
-"""Kommandoraden: tvcal check | measure | calibrate | restore."""
+"""Kommandoraden: tvcal check | measure | calibrate | hdr10 | restore."""
 
 import argparse
 import datetime
@@ -7,9 +7,9 @@ import shutil
 import sys
 from pathlib import Path
 
-from . import calibrate, measure, snapshot
+from . import calibrate, hdrcal, measure, snapshot
 from .meter import Meter, MeterError
-from .patterns import ROOT, gray_video, rgb_video
+from .patterns import ROOT, gray_video, hdr_video, rgb_video
 from .tv import TV, TVError
 
 # Spektralkorrigering för QD-Mini LED, uppmätt med JETI spectraval på en TCL 50C7K (DisplayCAL:s
@@ -192,11 +192,112 @@ def cmd_calibrate(args) -> int:
     return status
 
 
+HDR_MARK = "_HdrType"   # i ögonblicksbilden: värdena gäller den HDR-typen
+
+
+def _hdr_screen(tv, meter, window):
+    return hdrcal.Screen(lambda nits: tv.show_video(hdr_video((nits,) * 3, window), settle=6),
+                         meter.measure)
+
+
+def cmd_hdr10(args) -> int:
+    """HDR10-läget: mätning, eller kalibrering med ögonblicksbild och återställning.
+
+    TV:n lagrar bildvärdena per HDR-typ. All läsning och skrivning kräver att TV:n står i HDR10
+    (provappen vägrar annars), så SDR-värdena rörs aldrig.
+    """
+    tv = TV(args.tv, require_hdr="HDR10")
+    meter = Meter(ccss=args.ccss)
+    screen = _hdr_screen(tv, meter, args.window)
+    now = datetime.datetime.now()
+    run_dir = Path(args.out) / f"{now:%Y-%m-%d_%H%M%S}_hdr10"
+    calibrating = args.action == "calibrate"
+    steps = ["dimming", "whitepoint", "multipoint"] if args.steps == ["all"] else args.steps
+    snap = None
+    status = 0
+    run_dir.mkdir(parents=True, exist_ok=True)
+    log = (run_dir / "steps.txt").open("a")
+
+    def note(text):
+        print(text, flush=True)
+        log.write(text + "\n")
+        log.flush()
+
+    try:
+        tv.connect()
+        screen.show(100)
+        state = {key: tv.get(key) for key in STATE_KEYS}
+        note(f"HDR10, spektralkorrigering: {args.ccss or 'ingen'}; läge {state}")
+        if calibrating:
+            snap = {**snapshot.take(tv, hdrcal.KEYS), HDR_MARK: "HDR10"}
+            snapshot.save(snap, run_dir / "snapshot.json")
+            note(f"Ögonblicksbild: {run_dir / 'snapshot.json'}")
+        if not calibrating or args.before or args.steps == ["all"]:
+            rows = hdrcal.grayscale(screen)
+            path = hdrcal.save(rows, run_dir, "before" if calibrating else "measure",
+                               {"title": f"HDR10 gråskala {'före' if calibrating else ''} "
+                                         f"{now:%Y-%m-%d %H:%M}", "state": state})
+            note(path.read_text())
+        for step in steps if calibrating else []:
+            if step == "dimming":
+                tv.set("LD_MODE", "Off")
+                tv.set("Local_Contrast", "Off")
+                note("Lokaldämpning och lokal kontrast avstängda i HDR10-läget")
+            elif step == "whitepoint":
+                res = hdrcal.whitepoint(tv, screen)
+                note(f"Vitpunkt vid {hdrcal.WHITE_NITS:.0f} cd/m²: gain {res.gains}, x/y "
+                     f"{res.reading.x:.4f}/{res.reading.y:.4f}, Y {res.reading.Y:.1f}, "
+                     f"{'nått' if res.reached else 'INTE nått'}, {len(res.history)} mätningar")
+            elif step == "multipoint":
+                hdrcal.multipoint(tv, screen, log=lambda r: note(
+                    f"Punkt {r.index} ({r.nits:.1f} cd/m²): {r.values}, ΔE ITP {r.delta_itp:.2f},"
+                    f" {r.measurements} mätningar"))
+        if calibrating:
+            rows = hdrcal.grayscale(screen)
+            path = hdrcal.save(rows, run_dir, "after", {"title": "HDR10 gråskala efter",
+                                                        "state": snapshot.take(tv, hdrcal.KEYS)})
+            note(path.read_text())
+    except (TVError, MeterError) as e:
+        print(f"FEL: {e}", file=sys.stderr)
+        status = 1
+    except KeyboardInterrupt:
+        print("Avbrutet", file=sys.stderr)
+        status = 130
+    finally:
+        if snap and (not args.keep or status):
+            try:
+                written = _restore_hdr(tv, snap)
+                note(f"Återställt från ögonblicksbilden ({len(written)} nycklar ändrade tillbaka)")
+            except TVError as e:
+                print(f"VARNING: återställningen misslyckades: {e}. Kör tvcal restore "
+                      f"{run_dir / 'snapshot.json'}", file=sys.stderr)
+                status = status or 1
+        try:
+            tv.home()
+        except Exception:
+            pass
+        log.close()
+    print(f"Rapport: {run_dir}")
+    return status
+
+
+def _restore_hdr(tv, snap) -> list[str]:
+    """Återställer en HDR-ögonblicksbild: visar ett mönster i rätt läge och kräver det läget."""
+    tv.require_hdr = snap[HDR_MARK]
+    tv.show_video(hdr_video((100, 100, 100)), settle=8)
+    return snapshot.restore(tv, {k: v for k, v in snap.items() if k != HDR_MARK})
+
+
 def cmd_restore(args) -> int:
     tv = TV(args.tv)
     try:
         tv.connect()
-        written = snapshot.restore(tv, snapshot.load(Path(args.snapshot)))
+        snap = snapshot.load(Path(args.snapshot))
+        if HDR_MARK in snap:
+            written = _restore_hdr(tv, snap)
+            tv.home()
+        else:
+            written = snapshot.restore(tv, snap)
     except TVError as e:
         print(f"FEL: {e}", file=sys.stderr)
         return 1
@@ -232,13 +333,24 @@ def main(argv=None) -> int:
                    help="spektralkorrigering för mätaren; none = ingen")
     c.add_argument("--keep", action="store_true", help="behåll resultatet i stället för att återställa")
     c.add_argument("--out", default=str(ROOT / "data" / "runs"))
+    h = sub.add_parser("hdr10", help="HDR10-läget: measure (skriver inget) eller calibrate (SKRIVER)")
+    h.add_argument("action", choices=["measure", "calibrate"])
+    h.add_argument("steps", nargs="*", default=["all"],
+                   choices=["all", "dimming", "whitepoint", "multipoint"],
+                   help="steg för calibrate; all = alla med mätning före och efter")
+    h.add_argument("--before", action="store_true", help="mät före stegen")
+    h.add_argument("--window", type=int, default=10)
+    h.add_argument("--ccss", type=_ccss, default=str(DEFAULT_CCSS),
+                   help="spektralkorrigering för mätaren; none = ingen")
+    h.add_argument("--keep", action="store_true", help="behåll resultatet i stället för att återställa")
+    h.add_argument("--out", default=str(ROOT / "data" / "runs"))
     r = sub.add_parser("restore", help="återställ bildinställningarna från en ögonblicksbild")
     r.add_argument("snapshot")
     args = p.parse_args(argv)
     if not args.tv:
         p.error("TV:ns adress saknas: ange --tv <ip> eller sätt TVCAL_TV")
     return {"check": cmd_check, "measure": cmd_measure, "calibrate": cmd_calibrate,
-            "restore": cmd_restore}[args.cmd](args)
+            "hdr10": cmd_hdr10, "restore": cmd_restore}[args.cmd](args)
 
 
 if __name__ == "__main__":

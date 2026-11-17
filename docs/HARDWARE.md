@@ -61,6 +61,28 @@ Körning `data/runs/2026-11-17_123733_hdr10/`.
   tolkar signalen som BT.2020. Rött når inte P3 (panelens röda ligger åt orange, som i SDR).
 - **Metadata:** max-cll 1000, 4000 eller ingen metadata ger samma resultat (100 → 100,8–101,0;
   1000 → 687–689). Tonmappningen är fast och följer inte strömmens metadata.
+- **Gain i HDR10-läget** (`Color_Temperature_Warm_Blue_Gain` 976 → 880, läget omladdat): vitpunkten
+  flyttas lika mycket på 10, 100, 400 och 700 cd/m² (x +0,015, y +0,026), luminansen 1–2 % ner.
+- **Flerpunkts vitbalansen i HDR10-läget** slår igenom direkt med `PQ_WB_11_Point_enabled=On`, men
+  punkt *i* verkar på utsignalens luminans, inte på PQ-signalen: punkt 5 mest kring 52 cd/m²
+  (30–70), punkt 9 kring 165 (130–210). Det passar 735 × (0,05·(*i*+1))^2,2 cd/m², alltså 1–244
+  cd/m² för punkt 0–11.
+- **Mätningen:** direkt efter att provappen legat över videon gav samma mönster ibland en annan
+  färgpunkt (x +0,004, y −0,005, Y −3 %), stabil tills videon startades om. Fyra avläsningar utan
+  provappen emellan låg inom 0,0002. `tvcal hdr10` startar därför om mönstret och mäter två gånger.
+
+#### HDR10-kalibreringen som behölls 2026-11-17
+`tvcal hdr10 calibrate --keep`, körning `data/runs/2026-11-17_141311_hdr10/` (cirka 2 h 15 min).
+Ögonblicksbilden före: `snapshot.json` i körmappen.
+
+- Gain (Warm, HDR10): R 1036, G 1014, B 891 (från 1036/1024/976); vitt 400 cd/m² på 0,3131/0,3297.
+- Punkterna: 0 blått 45; 2–6 kring 47–49; 8 54/54/52; 10 60/59/58. Punkt 1, 7, 9 och 11 blev kvar
+  på 50 (ΔE ITP 1,2, 1,3, 2,4, 2,4) – lösaren hittade inget bättre efter 8 mätningar.
+- ΔE ITP över 5–600 cd/m²: medel 8,46 → 2,41, max 10,07 → 7,45. Färgpunkten ligger på D65
+  (x 0,312–0,314, y 0,327–0,330) från 5 cd/m² och uppåt. Kvarvarande fel är luminans: 300–600
+  cd/m² ligger 4–9 % under PQ (sänkt gain kostar cirka 3 %, resten är TV:ns avrundning), och
+  toppen sjönk från 725 till 702 cd/m².
+- SDR-värdena kontrollerade orörda efteråt (Backlight 9, Warm 994/1024/908, punkterna kvar).
 
 ## Bildinställningar
 

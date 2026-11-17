@@ -1,6 +1,6 @@
 # tvcal – programmet
 
-Kalibrerar gråskalan på Xiaomi `MiTV-MOEU0` (bildläge `Movie`, inbyggda appar, SDR) med
+Kalibrerar gråskalan på Xiaomi `MiTV-MOEU0` (bildläge `Movie`, inbyggda appar, SDR och HDR10) med
 i1Display Pro. Vägen till bildinställningarna: en egen app på TV:n skriver i MediaTeks
 bilddatabas `settingspqdb` (TV:ns Calman-läge är reserv).
 Mätfakta som stegen bygger på: `docs/HARDWARE.md`.
@@ -13,7 +13,9 @@ python3 -m tvcal.cli measure                      # gråskala 5–100 % mot mål
 python3 -m tvcal.cli calibrate all                # hela kedjan, mät före och efter, återställ sedan
 python3 -m tvcal.cli calibrate all --keep         # som ovan men behåll resultatet
 python3 -m tvcal.cli calibrate backlight --target-y 200   # ett steg
-python3 -m tvcal.cli restore data/runs/<körning>/snapshot.json
+python3 -m tvcal.cli hdr10 measure               # HDR10: gråskala 1–4000 cd/m² mot PQ; skriver inget
+python3 -m tvcal.cli hdr10 calibrate [--keep]     # HDR10: lokaldämpning, vitpunkt, punkter; mät före och efter
+python3 -m tvcal.cli restore data/runs/<körning>/snapshot.json   # SDR eller HDR10, efter ögonblicksbilden
 ```
 `--tv <ip>` väljer TV (standard miljövariabeln `TVCAL_TV`), `--ccss <fil>` ger mätaren spektralkorrigering; standard är `ccss/qd-miniled-tcl-50c7k.ccss`, `--ccss none` mäter utan.
 `measure --colors` mäter också färgerna 100 % och 75 % mot BT.709.
@@ -28,6 +30,13 @@ på en ruta på 10 % av ytan som video, eftersom bildbehandlingen bara verkar p�
   får förinställningens gain.
 - Provappen på TV:n tar bara emot nycklarna och intervallen i sin `WRITABLE`-lista.
 - Varje skrivning läses tillbaka; tre försök innan felet rapporteras.
+- TV:n lagrar bildvärdena per HDR-typ, och de gäller den typ som visas när de skrivs. `hdr10`
+  skickar `--es hdr HDR10` med varje anrop, och provappen läser och skriver då bara om TV:n står
+  i HDR10 (annars `WrongHDRType`). En HDR-körning kan alltså inte röra SDR-kalibreringen.
+  Ögonblicksbilden märks med `_HdrType`, och `restore` visar ett HDR-mönster och kräver HDR10
+  innan den skriver.
+- `tv.home()` stoppar provappen (`am force-stop`): hemknappen ensam nådde ibland inte fram, och
+  då spelade mönstret vidare.
 
 ## Stegen (`tvcal/calibrate.py`)
 | Steg | Gör | Mätningar (simulerat) |
@@ -48,16 +57,41 @@ högre i y än vitt och ingen punkt når dit. `--no-white-compromise` ställer v
 
 Ovanför 60 % finns ingen egen punkt, så 65–95 % följer gain och gamma.
 
+## HDR10 (`tvcal/hdrcal.py`, `tvcal hdr10`)
+Mönstren är HEVC Main10 med PQ och BT.2020 (`scripts/make_pattern_hdr.sh`, kodvärden från
+`tvcal/hdr.py`), ruta 10 %. TV:n byter då till HDR10 och bildläget `ImaxEnhanced`. Mål: PQ i
+absolut luminans och D65; felet mäts i ΔE ITP (ITU-R BT.2124), sammanfattat över 5–600 cd/m², där
+TV:n följer PQ. Under 5 lyfter svart (cirka 0,4 cd/m²), över 600 avrundas kurvan mot cirka 740.
+
+| Steg | Gör |
+|---|---|
+| `dimming` | `LD_MODE=Off`, `Local_Contrast=Off` i HDR10-läget (med lokaldämpning beror toppen på ytan: 308–874 cd/m²) |
+| `whitepoint` | Som i SDR, men på grått 400 cd/m²: gain flyttar vitpunkten lika mycket på alla nivåer |
+| `multipoint` | Punkt *i* verkar kring 735 × (0,05·(*i*+1))^2,2 cd/m², alltså 1–244 cd/m² (inte på PQ-signalens 5 % × (*i*+1) som i SDR). Varje punkt ställs mot PQ och D65 tills ΔE ITP ≤ 1; punkt 0–1 (under 3 cd/m²) bara mot färgpunkten |
+
+`all` kör alla tre med mätning före och efter. Bakgrundsljus (100), gamma (`ST2084`) och
+färghantering rörs inte.
+
+Före varje mätning startas mönstret om och mäts två gånger, och avläsningarna måste stämma (en
+tredje annars). Direkt efter att provappen legat över videon gav samma mönster ibland en annan
+färgpunkt (x +0,004, y −0,005), som låg kvar tills videon startades om. Det gör en mätning cirka
+30 s.
+
+`scripts/hdr_check.py` är provet av signalvägen (fas 1) och kan köras om: PQ-kurva, yta och
+lokaldämpning, primärer, metadata, gain och punkter.
+
 ## Delar
 | Fil | Innehåll |
 |---|---|
 | `tvcal/color.py` | xyY/XYZ/Lab, ΔE2000 (testad mot Sharma m.fl. 2005), målvärden |
 | `tvcal/meter.py` | `spotread` med två avläsningar, tredje vid drift |
 | `tvcal/tv.py` | adb och provappen via `am start` (2–3 s per anrop) |
-| `tvcal/patterns.py` | grå mönstervideor via `scripts/make_pattern.sh`, sparade i `data/patterns/` |
+| `tvcal/patterns.py` | mönstervideor via `scripts/make_pattern.sh` (SDR) och `make_pattern_hdr.sh` (HDR10), sparade i `data/patterns/` |
 | `tvcal/snapshot.py` | ögonblicksbild och återställning |
 | `tvcal/sim.py` | simulerad TV byggd på mätningarna, för tester |
 | `tvcal/measure.py` | gråskalemätning och rapport |
+| `tvcal/hdr.py` | PQ (ST 2084), 10-bitarskoder i BT.2020, P3-primärer, ICtCp och ΔE ITP |
+| `tvcal/hdrcal.py` | HDR10: mätning, vitpunkt, flerpunkts vitbalans, mätning med omstart |
 | `tvcal/cli.py` | kommandoraden |
 
 Körningar sparas i `data/runs/<datum>_<tid>/` (inte i git).

@@ -228,12 +228,14 @@ def _solve3(m, v):
 
 
 def solve_three(tv, keys: dict, measure, target, white_y: float, white_xy=(0.3127, 0.3290),
-                tol_de: float = 1.0, max_iter: int = 4, probe: int = 8, lo: int = 0, hi: int = 100):
+                tol_de: float = 1.0, max_iter: int = 4, probe: int = 8, lo: int = 0, hi: int = 100,
+                metric=None):
     """Ställer tre reglage (namn -> nyckel) så att mätningen hamnar på target (Reading).
 
     Känsligheten uppskattas med ett provsteg per reglage (probe; negativt = nedåt) och används
     i en linjär lösning i XYZ, som upprepas. Det bästa uppmätta läget behålls. Returnerar
-    (värden, mätning, ΔE00, antal mätningar). Mönstret ska redan visas.
+    (värden, mätning, ΔE, antal mätningar). Mönstret ska redan visas. metric(mätning, mål) ersätter
+    ΔE00 relativt white_y, t.ex. med ΔE ITP för HDR.
     """
     from .color import gray_delta_e, xyy_to_xyz
 
@@ -254,6 +256,8 @@ def solve_three(tv, keys: dict, measure, target, white_y: float, white_xy=(0.312
         return r, xyy_to_xyz(r.x, r.y, r.Y)
 
     def de(r):
+        if metric:
+            return metric(r, target)
         return gray_delta_e(r, target, white_y, white_xy)
 
     r, xyz = at(values)

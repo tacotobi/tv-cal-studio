@@ -16,7 +16,8 @@ import java.io.FileWriter;
  *
  * am start -n se.tvcal.pqprobe/.ProbeActivity --es paths general,source \
  *     [--es selection "..."] [--es args "a,b"] [--es projection "x,y"]
- *     [--es keys "Backlight,Contrast"] [--es set "Backlight=29"]
+ *     [--es keys "Backlight,Contrast"] [--es set "Backlight=29"] [--es hdr HDR10]
+ * hdr = läs och skriv bara om TV:n står i den HDR-typen; annars bara raden HDRFEL=<typ>.
  */
 public class ProbeActivity extends Activity {
     private static final String TAG = "PQPROBE";
@@ -31,6 +32,21 @@ public class ProbeActivity extends Activity {
         String selection = getIntent().getStringExtra("selection");
         String[] args = split(getIntent().getStringExtra("args"));
         String[] projection = split(getIntent().getStringExtra("projection"));
+
+        // Värdena lagras per HDR-typ och gäller den typ som visas just nu. Med "hdr" angiven
+        // läses och skrivs bara om TV:n står i den typen; annars kunde en HDR-kalibrering skriva
+        // över SDR-värdena om mönstervideon stannat.
+        String hdr = getIntent().getStringExtra("hdr");
+        if (hdr != null) {
+            String current = hdrType();
+            if (!hdr.equals(current)) {
+                out.append("HDRFEL=").append(current).append(" (väntade ").append(hdr).append(")\n");
+                save(out);
+                finish();
+                return;
+            }
+            out.append("HDR=").append(current).append('\n');
+        }
 
         String set = getIntent().getStringExtra("set");
         if (set != null) {
@@ -71,6 +87,19 @@ public class ProbeActivity extends Activity {
             }
         }
 
+        save(out);
+        finish();
+    }
+
+    private String hdrType() {
+        try (Cursor c = getContentResolver().query(Uri.parse(BASE + "hdr"), null, null, null, null)) {
+            return c != null && c.moveToFirst() ? c.getString(0) : "<okänd>";
+        } catch (Throwable t) {
+            return "<fel: " + t + ">";
+        }
+    }
+
+    private void save(StringBuilder out) {
         File file = new File(getExternalFilesDir(null), "out.txt");
         try (FileWriter w = new FileWriter(file)) {
             w.write(out.toString());
@@ -78,7 +107,6 @@ public class ProbeActivity extends Activity {
         } catch (Throwable t) {
             Log.e(TAG, "kunde inte skriva " + file, t);
         }
-        finish();
     }
 
     /**

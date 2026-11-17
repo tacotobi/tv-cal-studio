@@ -198,3 +198,57 @@ class SimMeter:
             return r
         n = lambda s: self.rng.gauss(0, s)
         return Reading(r.Y * (1 + n(self.noise)), r.x + n(self.noise * 0.05), r.y + n(self.noise * 0.05))
+
+
+# HDR10-läget, efter proven 2026-11-17: kvoten mätt/PQ per nivå, panelens primärer på
+# HDR-signal, vitt med Warm 1036/1024/976 och punkternas verkan kring sina nivåer.
+HDR_TONE = [(0, 0.4), (1, 1.44), (5, 4.95), (10, 9.2), (20, 20.0), (50, 50.7), (100, 99.1),
+            (203, 199.6), (400, 403.0), (600, 580.0), (700, 627.0), (800, 657.0), (1000, 696.0),
+            (2000, 740.0), (10000, 740.0)]
+HDR_PRIMARIES = {"Red": (0.6528, 0.3049), "Green": (0.2695, 0.6641), "Blue": (0.1562, 0.0493)}
+HDR_WHITE = (0.2995, 0.3095)
+HDR_GAIN_EXPONENT = 2.3     # blått −96 gav x +0,015, y +0,026 på alla nivåer
+HDR_POINT_STEP = 0.010       # relativ ändring av kanalen per steg vid punktens topp
+HDR_POINT_WIDTH = 0.4        # punktens verkan går till noll ln(L/Lᵢ) = ±0,4 bort
+
+
+def _hdr_shares():
+    cols = [xyy_to_xyz(*HDR_PRIMARIES[c], 1.0) for c in CHANNELS]
+    m = [[cols[c][r] for c in range(3)] for r in range(3)]
+    return dict(zip(CHANNELS, _solve3(m, xyy_to_xyz(*HDR_WHITE, 1.0))))
+
+
+HDR_SHARES = _hdr_shares()
+
+
+class SimHDRTV(SimTV):
+    """HDR10-läget: samma nycklar som SimTV men egna startvärden och en PQ-modell."""
+
+    def __init__(self):
+        super().__init__(backlight=100, mode="Warm")
+        self.db.update({"LD_MODE": "Off", "Local_Contrast": "Off", "Global_Dimming": "Off"})
+        self.nits = 100.0
+        self.require_hdr = None
+
+    def show_nits(self, nits):
+        self.nits = nits
+
+    def show_video(self, nits, settle=0):
+        """I testerna ersätts mönsterfilen av sin luminans."""
+        self.nits = nits
+
+    def render(self) -> Reading:
+        from .hdrcal import point_nits
+        Y0 = _interp(HDR_TONE, self.nits)
+        enabled = self.db["PQ_WB_11_Point_enabled"] == "On"
+        X = Y = Z = 0.0
+        for c in CHANNELS:
+            drive = HDR_SHARES[c] * (self.hal_gain[c] / PRESETS["Warm"][CHANNELS.index(c)]) ** HDR_GAIN_EXPONENT
+            if enabled:
+                for i in range(12):
+                    w = max(0.0, 1 - abs(math.log(max(self.nits, 1e-3) / point_nits(i))) / HDR_POINT_WIDTH)
+                    drive *= 1 + HDR_POINT_STEP * w * (int(self.db[f"PQ_WB_11_Point_{i}_{c}"]) - 50)
+            cx, cy, cz = xyy_to_xyz(*HDR_PRIMARIES[c], drive * Y0)
+            X, Y, Z = X + cx, Y + cy, Z + cz
+        s = X + Y + Z
+        return Reading(Y, X / s, Y / s)

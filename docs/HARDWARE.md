@@ -83,6 +83,22 @@ Körning `data/runs/2026-11-17_123733_hdr10/`.
   cd/m² ligger 4–9 % under PQ (sänkt gain kostar cirka 3 %, resten är TV:ns avrundning), och
   toppen sjönk från 725 till 702 cd/m².
 - SDR-värdena kontrollerade orörda efteråt (Backlight 9, Warm 994/1024/908, punkterna kvar).
+- **Efterjustering samma kväll:** punkt 1, 7, 9 och 11 kördes om en i taget och nådde ΔE ITP
+  0,99, 0,20, 0,23 och 0,23 (49/49/49, 55/54/54, 57/56/58, 56/56/56). Utan ändringar i koden;
+  avvikande mätningar under provstegen hade fått lösaren att ge upp. `multipoint` gör nu ett andra
+  försök när en punkt inte når målet. Omätt efteråt: 20–150 cd/m² ΔE ITP 0,4–0,7, färgpunkten
+  inom 0,001 från D65 på 20–300 cd/m²; 100 och 203 cd/m² ligger 3 % över PQ, 300 cd/m² 7 % under.
+- **Avvikande mätningar:** en hel mätning (`hdr10 measure`, 17:28) gav 35 och 150 cd/m² 7–8 % för
+  mörkt med x +0,004, y −0,003, trots omstart och dubbel avläsning; omätta minuter senare låg de
+  rätt. 150 cd/m² visad i sju minuter utan byte av mönster var stabil (149,3, 0,3124/0,3285).
+  Orsaken är okänd – möjligen AISR (innehållsanpassad uppskalning), som nu är avstängd i HDR10.
+- **Skärpa och AISR i HDR10-läget:** `SR_Strength` (menyns Skärpa, 0–63) 10 → 0 och `AISR`
+  (Off/Low/Middle/High) Middle → Off, satta via provappen medan HDR10 visades. SDR står kvar på
+  3 och Middle.
+- **Ram runt rutan:** HDR-mönstren var först kodade med förlust (x265 ultrafast), och kanten
+  ringade (kodvärden ±15 i cirka 15 pixlar) – syntes som en tavelram. Mönstren kodas nu
+  förlustfritt (`lossless=1`, Main 10, 0,7 MB). Mitten var exakt hela tiden, så mätningarna
+  påverkades inte. SDR-mönstren (x264) hade ingen ringning.
 
 ## Bildinställningar
 

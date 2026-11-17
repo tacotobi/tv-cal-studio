@@ -57,6 +57,24 @@ class ChainTest(unittest.TestCase):
         self.assertEqual(tv.get("PQ_WB_11_Point_enabled"), "On")
 
 
+class RetryTest(unittest.TestCase):
+    def test_point_is_retried_when_first_attempt_fails(self):
+        from unittest import mock
+        from tvcal import calibrate
+        calls = []
+
+        def fake(tv, keys, measure, target, *a, **k):
+            calls.append(1)
+            de = 3.0 if len(calls) == 1 else 0.5
+            return {c: 50 for c in keys}, target, de, 4
+
+        with mock.patch.object(calibrate, "solve_three", side_effect=fake):
+            tv = SimHDRTV()
+            res = hdrcal.multipoint(tv, hdrcal.Screen(tv.show_nits, SimMeter(tv).measure), indices=[9])
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(res[0].measurements, 8)
+
+
 class CliTest(unittest.TestCase):
     def run_cli(self, *argv):
         import tempfile

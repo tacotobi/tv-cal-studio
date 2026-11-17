@@ -117,6 +117,8 @@ public class ProbeActivity extends Activity {
     private static final java.util.Map<String, int[]> WRITABLE = new java.util.HashMap<>();
     static {
         WRITABLE.put("Backlight", new int[] {0, 100});
+        // Skärpa i menyn; 0–63 enligt PQMappingRuleList.json. Ringar runt skarpa kanter.
+        WRITABLE.put("SR_Strength", new int[] {0, 63});
         for (String c : new String[] {"Red", "Green", "Blue"}) {
             WRITABLE.put("Color_Temperature_" + c + "_Gain", new int[] {512, 2047});
             WRITABLE.put("Color_Temperature_Warm_" + c + "_Gain", new int[] {512, 2047});
@@ -157,6 +159,7 @@ public class ProbeActivity extends Activity {
         // Värdena står i PQPerstream_Range.json; Global_Dimming finns inte där, men står på On.
         WRITABLE_TEXT.put("Local_Contrast", java.util.Arrays.asList("Off", "Low", "Middle", "High"));
         WRITABLE_TEXT.put("Global_Dimming", java.util.Arrays.asList("On", "Off"));
+        WRITABLE_TEXT.put("AISR", java.util.Arrays.asList("Off", "Low", "Middle", "High"));
         java.util.List<String> gammas = java.util.Arrays.asList(
                 "Gamma18", "Gamma20", "Gamma22", "Gamma24", "Gamma26");   // BT1886 lagras men når aldrig HAL:en
         WRITABLE_TEXT.put("Gamma", gammas);

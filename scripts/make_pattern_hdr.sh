@@ -7,7 +7,8 @@
 #   exempel:  scripts/make_pattern_hdr.sh data/patterns/hdr_gray100.mp4 509,512,512
 #   max-cll:  "1000,400" (standard), "4000,400", eller "none" för en ström utan HDR10-metadata.
 # Bilden ritas direkt i yuv420p10le med geq, så kodvärdena blir exakta utan omräkning. geq är
-# långsam, så en ruta ritas och upprepas till 60 s.
+# långsam, så en ruta ritas och upprepas till 60 s. Förlustfri kodning: med förlust ringade kanten
+# (kodvärden ±15 i 15 pixlar), som en ram runt rutan på TV:n.
 set -euo pipefail
 
 [ $# -ge 2 ] || { echo "Användning: $0 <ut.mp4> <Y,Cb,Cr> [procent] [max-cll|none]" >&2; exit 2; }
@@ -23,7 +24,7 @@ hi="$(awk -v s="$side" 'BEGIN { printf "%.4f", (1 + s) / 2 }')"
 # X/W och Y/H är relativa, så samma uttryck gäller i de halverade krominansplanen.
 inside="between(X/W,$lo,$hi)*between(Y/H,$lo,$hi)"
 
-x265="colorprim=bt2020:transfer=smpte2084:colormatrix=bt2020nc:range=limited:log-level=error"
+x265="lossless=1:colorprim=bt2020:transfer=smpte2084:colormatrix=bt2020nc:range=limited:log-level=error"
 if [ "$cll" != none ]; then
   # P3-primärer och D65 i enheter om 0,00002, luminans i 0,0001 cd/m² (1000 / 0,0001 cd/m²).
   x265="$x265:hdr10=1:repeat-headers=1:max-cll=$cll"

@@ -143,7 +143,7 @@ class PointResult:
 
 
 def multipoint(tv, screen: Screen, indices=range(12), tol_de: float = 1.0,
-               log=None) -> list[PointResult]:
+               log=None, attempts: int = 2) -> list[PointResult]:
     """Ställer punkterna en i taget mot PQ och D65 på sin egen nivå, tills ΔE ITP ≤ tol_de."""
     tv.set("PQ_WB_11_Point_enabled", "On")
     results = []
@@ -152,9 +152,17 @@ def multipoint(tv, screen: Screen, indices=range(12), tol_de: float = 1.0,
         screen.show(nits)
         target_y = nits if nits >= LOW_POINT_NITS else screen.measure().Y
         target = Reading(target_y, *D65)
-        vals, best, _de, count = calibrate.solve_three(
-            tv, {c: f"PQ_WB_11_Point_{i}_{c}" for c in calibrate.CHANNELS}, screen.measure,
-            target, REF_WHITE, D65, tol_de, metric=delta_e_itp)
+        count = 0
+        for _ in range(attempts):
+            # En avvikande mätning under provstegen kan ge fel riktning; lösaren behåller då
+            # utgångsläget. Ett nytt försök från bästa läget räckte för punkt 1, 7 och 9
+            # 2026-11-17, som inte rörde sig under hela körningen.
+            vals, best, de, n = calibrate.solve_three(
+                tv, {c: f"PQ_WB_11_Point_{i}_{c}" for c in calibrate.CHANNELS}, screen.measure,
+                target, REF_WHITE, D65, tol_de, metric=delta_e_itp)
+            count += n
+            if de <= tol_de:
+                break
         res = PointResult(i, nits, vals, best, target, delta_e_itp(best, target), count)
         if log:
             log(res)

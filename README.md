@@ -13,10 +13,11 @@ MediaTek picture database – no service menu and no Calman licence needed.
 | Model | Xiaomi `MiTV-MOEU0` (codename `ladybird`), Google TV / Android 14 |
 | Panel | QD-Mini LED, 3840×2160 @ 60 Hz |
 | SoC | MediaTek MT9689 – settings live in MediaTek's `settingspqdb` database |
-| Picture mode | `Movie`, SDR, built-in apps |
+| Picture mode | `Movie` (SDR) and `ImaxEnhanced` (HDR10), built-in apps |
 
 Other TVs with a MediaTek SoC may expose the same database, but only this model has been tested.
-HDR and HDMI sources are not calibrated yet.
+HDR10 has its own settings on this TV and is calibrated separately (`tvcal hdr10`). HLG, Dolby Vision
+and HDMI sources are not calibrated yet.
 
 ## How it works
 
@@ -35,6 +36,12 @@ and Ctrl+C – unless `--keep` is given.
 
 BT.709, D65 white point, gamma 2.2 and 200 cd/m² white, with local dimming off.
 Result on 2026-11-16: greyscale mean ΔE2000 5.96 → 1.34 (max 10.25 → 3.14); colours 3.28 → 1.42.
+
+HDR10: PQ (ST 2084) in absolute luminance and D65, with local dimming off. HEVC Main10 patterns make
+the TV switch to HDR10, where it tracks PQ within about ±4 % up to 600 cd/m² and rolls off towards
+about 740 cd/m². The app refuses to read or write unless the TV is in HDR10, so the SDR calibration is
+never touched. Result on 2026-11-17 (white point and multi-point white balance): greyscale mean
+ΔE ITP 8.46 → 2.41 over 5–600 cd/m².
 
 ## Requirements
 

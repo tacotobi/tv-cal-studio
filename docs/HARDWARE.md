@@ -433,6 +433,25 @@ Vitt (Backlight=30) mätt utan och med tolv CCSS från QD- och QD-Mini LED-skär
 - **Overifierat:** hur nära panelens eget spektrum filen ligger. Det kräver en spektrometer.
 - Filen ligger i `ccss/qd-miniled-tcl-50c7k.ccss` och är standard i `tvcal`; `--ccss none` mäter utan.
 
+#### Kalibreringen som behölls 2026-11-16
+`calibrate all --keep` med CCSS:en, rapporter i `data/runs/2026-11-16_223916/` (ögonblicksbilden
+där återställer läget före). Resultatet ligger kvar på TV:n: `LD_MODE=Off`, `Local_Contrast=Off`,
+`Backlight=9`, `Gamma22`, Warm-gain 994/1024/908, flerpunkts vitbalans och färghantering på.
+
+| ΔE00 medel / max | Före | Efter |
+|---|---|---|
+| Gråskala | 5,96 / 10,25 | 1,34 / 3,14 |
+| Färger 100 % + 75 % | 3,28 / 8,59 | 1,42 / 2,59 |
+
+![Före och efter](img/kalibrering-2026-11-16.png)
+
+- Med CCSS:en mäter före-läget sämre än utan (5,96 mot 4,48): korrigeringen visar att vitt låg
+  längre från D65 än mätaren sa okorrigerad.
+- **Verifierat:** blått går nu att förbättra (ΔE00 2,8–3,3 → 1,1–1,2); felet låg alltså delvis i
+  mätningen. Rött 100 % och magenta 100 % ligger kvar på 2,2–2,6.
+- Restfelet i gråskalan är 65–95 % (ΔE00 2,6–3,1), som ligger cirka 0,004 högre i y än vitt utan
+  egen punkt. 5–60 % ligger under 1. Graf: `scripts/plot_run.py <körning>`.
+
 ### Inbyggd Calman-app
 - **Verifierat:** `com.mediatek.calman` 1.0.30 (build 20231213) ligger i `/system_ext/app/Calman`,
   har `MainActivity` och håller `settingspqdb`-behörigheterna.
